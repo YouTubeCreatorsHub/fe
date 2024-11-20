@@ -2,22 +2,19 @@ name: Project Board Automation
 
 on:
   issues:
-    types: [opened, reopened, closed]    # 이슈가 열리거나, 다시 열리거나, 닫힐 때
+    types: [opened, reopened, closed]
   pull_request:
-    types: [opened, reopened, closed]    # PR이 열리거나, 다시 열리거나, 닫힐 때
+    types: [opened, reopened, closed]
 
 jobs:
   project_automation:
     runs-on: ubuntu-latest
-    permissions:  # GitHub Token 권한 설정
-      issues: write
-      pull-requests: write
-      projects: write
-      contents: write
     steps:
       - uses: actions/github-script@v6
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
             const PROJECT = {
               ID: 'PVT_kwDOC0FCP84AsibV',  // 실제 프로젝트 ID
@@ -119,12 +116,12 @@ jobs:
   add_reviewers:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action == 'opened'
-    permissions:
-      pull-requests: write
     steps:
       - uses: actions/github-script@v6
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
             try {
               await github.rest.pulls.requestReviewers({
