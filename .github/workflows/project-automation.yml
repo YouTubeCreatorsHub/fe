@@ -6,18 +6,22 @@ on:
   pull_request:
     types: [opened, reopened, closed]
 
-permissions: write-all
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  repository-projects: write
 
 jobs:
   project_automation:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: ['20.x'] # Node.js 20 명시
+        node-version: ['20.x']
     steps:
-      - uses: actions/github-script@v7 # Node.js 20 지원 버전
+      - uses: actions/github-script@v7
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const PROJECT = {
               ID: 'PVT_kwDOC0FCP84AsibV',
@@ -31,10 +35,16 @@ jobs:
               }
             };
 
-            // 이슈나 PR을 프로젝트의 특정 컬럼으로 이동시키는 함수
             async function moveIssueToColumn(nodeId, columnId) {
+              if (!nodeId) {
+                console.error('Error: nodeId is empty');
+                return;
+              }
+
               try {
-                // 프로젝트에 이슈/PR 추가
+                console.log('Adding item with nodeId:', nodeId);
+                console.log('Project ID:', PROJECT.ID);
+                
                 const addToProjectMutation = `
                   mutation($projectId: ID!, $contentId: ID!) {
                     addProjectV2ItemById(input: {
@@ -53,66 +63,85 @@ jobs:
                   contentId: nodeId
                 });
 
-                // 상태 업데이트 (컬럼 이동)
-                if (addResponse.addProjectV2ItemById.item) {
-                  const itemId = addResponse.addProjectV2ItemById.item.id;
-                  const updateStatusMutation = `
-                    mutation($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $columnId: String!) {
-                      updateProjectV2ItemFieldValue(input: {
-                        projectId: $projectId
-                        itemId: $itemId
-                        fieldId: $statusFieldId
-                        value: { 
-                          singleSelectOptionId: $columnId
-                        }
-                      }) {
-                        projectV2Item {
-                          id
-                        }
+                if (!addResponse?.addProjectV2ItemById?.item?.id) {
+                  throw new Error('Failed to add item to project');
+                }
+
+                const itemId = addResponse.addProjectV2ItemById.item.id;
+                console.log('Item added successfully, itemId:', itemId);
+
+                const updateStatusMutation = `
+                  mutation($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $columnId: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $statusFieldId
+                      value: { 
+                        singleSelectOptionId: $columnId
+                      }
+                    }) {
+                      projectV2Item {
+                        id
                       }
                     }
-                  `;
+                  }
+                `;
 
-                  await github.graphql(updateStatusMutation, {
-                    projectId: PROJECT.ID,
-                    itemId: itemId,
-                    statusFieldId: PROJECT.STATUS_FIELD,
-                    columnId: columnId
-                  });
-                }
+                await github.graphql(updateStatusMutation, {
+                  projectId: PROJECT.ID,
+                  itemId: itemId,
+                  statusFieldId: PROJECT.STATUS_FIELD,
+                  columnId: columnId
+                });
+
+                console.log('Status updated successfully');
               } catch (error) {
-                console.error('Error:', error);
+                console.error('Error details:', error.message);
+                if (error.request) console.error('Request:', error.request);
+                if (error.response) console.error('Response:', error.response);
+                throw error;
               }
             }
 
             // 이슈 자동화
             if (context.eventName === 'issues') {
-              const issueId = context.payload.issue.node_id;
+              console.log('Processing issue event');
+              const issueId = context.payload.issue?.node_id;
+              if (!issueId) {
+                console.error('No issue node_id found in payload');
+                return;
+              }
+              
               const repo = context.payload.repository.name.toLowerCase();
+              console.log('Repository:', repo);
+              console.log('Action:', context.payload.action);
               
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                // FE 레포지토리의 이슈는 Backlog로
                 if (repo === 'fe') {
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
+                } else if (repo === 'be') {
+                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
                 }
-                // BE 레포지토리의 이슈는 Todo로
-                else if (repo === 'be') {
-                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.TODO);
-                }
-              }
-              else if (context.payload.action === 'closed') {
+              } else if (context.payload.action === 'closed') {
                 await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
               }
             }
 
             // PR 자동화
             if (context.eventName === 'pull_request') {
-              const prId = context.payload.pull_request.node_id;
+              console.log('Processing pull request event');
+              const prId = context.payload.pull_request?.node_id;
+              if (!prId) {
+                console.error('No PR node_id found in payload');
+                return;
+              }
+              
+              console.log('Action:', context.payload.action);
+              console.log('Merged:', context.payload.pull_request.merged);
               
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
-              }
-              else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
+              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
               }
             }
@@ -126,7 +155,7 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             try {
               await github.rest.pulls.requestReviewers({
@@ -135,6 +164,8 @@ jobs:
                 pull_number: context.payload.pull_request.number,
                 reviewers: ['choco5958', 'lim3873', 'tlswltjq']
               });
+              console.log('Reviewers added successfully');
             } catch (error) {
               console.error('Error adding reviewers:', error);
+              throw error;
             }
