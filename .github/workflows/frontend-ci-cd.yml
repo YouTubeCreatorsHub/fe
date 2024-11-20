@@ -1,6 +1,6 @@
-name: Frontend CI/CD 
-# 개발 시에는 품질검사만 실행하며 main에 merge 될때 배포진행
-# main, dev 브랜치에 push나 PR이 생성될 때 실행
+name: Frontend CI/CD
+
+# 트리거 설정
 on:
   push:
     branches: [ main, dev ]
@@ -34,6 +34,11 @@ jobs:
     - name: Install dependencies
       run: npm ci    # clean install 실행
       
+    # 환경 변수 설정
+    - name: Create env file
+      run: |
+        echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" > .env
+        
     # 코드 품질 검사
     - name: Lint
       run: |
@@ -66,3 +71,9 @@ jobs:
       if: github.ref == 'refs/heads/main'    # main 브랜치일 때만 실행
       run: |
         aws s3 sync ./out s3://fe-youtube-deploy --delete    # S3에 빌드 결과물 업로드
+        
+    # CloudFront 캐시 무효화 (선택사항)
+    - name: Invalidate CloudFront
+      if: github.ref == 'refs/heads/main'    # main 브랜치일 때만 실행
+      run: |
+        aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
