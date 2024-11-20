@@ -21,11 +21,12 @@ jobs:
           script: |
             const PROJECT = {
               ID: 'PVT_kwDOC0FCP84AsibV',
-              STATUS_FIELD: 'PVTSSF_lADOC0FCP84Asip6zgjctNk',
+              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
               COLUMNS: {
-                BACKLOG: 'd04ab34f',        // 📋 Backlog
-                TODO: 'f75ad846',           // ✅ Todo
-                IN_PROGRESS: '47fc9ee4',     // 💻 In Progress
+                BACKLOG: '17052d30',        // 📋 Backlog
+                SPRINT_BACKLOG: '2b4b3335', // 📅 Sprint Backlog
+                IN_PROGRESS: 'dc54b4f8',    // 💻 In Progress
+                IN_REVIEW: '3fdc4773',      // 👀 In Review
                 DONE: '98236657'            // ✅ Done
               }
             };
