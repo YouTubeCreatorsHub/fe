@@ -3,77 +3,77 @@ name: Frontend CI/CD
 # 트리거 설정
 on:
   push:
-    branches: [ main, dev ]
+    branches: [main, dev]
     paths:
-      - 'fe/**'    # fe 디렉토리의 변경사항만 감지
+      - 'fe/**' # fe 디렉토리의 변경사항만 감지
   pull_request:
-    branches: [ main, dev ]
+    branches: [main, dev]
     paths:
-      - 'fe/**'    # fe 디렉토리의 변경사항만 감지
+      - 'fe/**' # fe 디렉토리의 변경사항만 감지
 
 jobs:
   build:
-    runs-on: ubuntu-latest    # Ubuntu 최신 버전에서 실행
+    runs-on: ubuntu-latest # Ubuntu 최신 버전에서 실행
     defaults:
       run:
-        working-directory: ./fe    # 작업 디렉토리를 fe로 설정
+        working-directory: ./fe # 작업 디렉토리를 fe로 설정
 
     steps:
-    # 코드 체크아웃
-    - uses: actions/checkout@v3
-    
-    # Node.js 환경 설정
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'    # Node.js 18 버전 사용
-        cache: 'npm'         # npm 캐시 활성화
-        cache-dependency-path: './fe/package-lock.json'    # 캐시 경로 지정
-        
-    # 의존성 설치
-    - name: Install dependencies
-      run: npm ci    # clean install 실행
-      
-    # 환경 변수 설정
-    - name: Create env file
-      run: |
-        echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" > .env
-        
-    # 코드 품질 검사
-    - name: Lint
-      run: |
-        npm run lint        # ESLint 실행
-        npm run prettier    # Prettier 실행
-        
-    # TypeScript 타입 체크
-    - name: Type check
-      run: tsc --noEmit
-      
-    # 테스트 실행
-    - name: Run tests
-      run: npm run test
-      
-    # 프로덕션 빌드
-    - name: Build
-      run: npm run build
+      # 코드 체크아웃
+      - uses: actions/checkout@v3
 
-    # AWS 인증 설정 (main 브랜치에서만)
-    - name: Configure AWS credentials
-      if: github.ref == 'refs/heads/main'    # main 브랜치일 때만 실행
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-northeast-2    # 서울 리전
-        
-    # S3 배포 (main 브랜치에서만)
-    - name: Deploy to S3
-      if: github.ref == 'refs/heads/main'    # main 브랜치일 때만 실행
-      run: |
-        aws s3 sync ./out s3://fe-youtube-deploy --delete    # S3에 빌드 결과물 업로드
-        
-    # CloudFront 캐시 무효화 (선택사항)
-    - name: Invalidate CloudFront
-      if: github.ref == 'refs/heads/main'    # main 브랜치일 때만 실행
-      run: |
-        aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+      # Node.js 환경 설정
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Node.js 18 버전 사용
+          cache: 'npm' # npm 캐시 활성화
+          cache-dependency-path: './fe/package-lock.json' # 캐시 경로 지정
+
+      # 의존성 설치
+      - name: Install dependencies
+        run: npm ci # clean install 실행
+
+      # 환경 변수 설정
+      - name: Create env file
+        run: |
+          echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" > .env
+
+      # 코드 품질 검사
+      - name: Lint
+        run: |
+          npm run lint        # ESLint 실행
+          npm run prettier    # Prettier 실행
+
+      # TypeScript 타입 체크
+      - name: Type check
+        run: tsc --noEmit
+
+      # 테스트 실행
+      - name: Run tests
+        run: npm run test
+
+      # 프로덕션 빌드
+      - name: Build
+        run: npm run build
+
+      # AWS 인증 설정 (main 브랜치에서만)
+      - name: Configure AWS credentials
+        if: github.ref == 'refs/heads/main' # main 브랜치일 때만 실행
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2 # 서울 리전
+
+      # S3 배포 (main 브랜치에서만)
+      - name: Deploy to S3
+        if: github.ref == 'refs/heads/main' # main 브랜치일 때만 실행
+        run: |
+          aws s3 sync ./out s3://fe-youtube-deploy --delete    # S3에 빌드 결과물 업로드
+
+      # CloudFront 캐시 무효화 (선택사항)
+      - name: Invalidate CloudFront
+        if: github.ref == 'refs/heads/main' # main 브랜치일 때만 실행
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
