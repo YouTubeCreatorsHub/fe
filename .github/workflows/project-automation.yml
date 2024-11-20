@@ -10,20 +10,18 @@ jobs:
   project_automation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
-        env:
-          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+      - uses: actions/github-script@6.4.1
         with:
           github-token: ${{ github.token }}
           script: |
             const PROJECT = {
-              ID: 'PVT_kwDOC0FCP84AsibV',  // 실제 프로젝트 ID
-              STATUS_FIELD: 'PVTSSF_lADOC0FCP84Asip6zgjctNk',  // Status 필드 ID
+              ID: 'PVT_kwDOC0FCP84AsibV',
+              STATUS_FIELD: 'PVTSSF_lADOC0FCP84Asip6zgjctNk',
               COLUMNS: {
-                BACKLOG: 'd04ab34f',        // 📋 Backlog
-                TODO: 'f75ad846',           // ✅ Todo
-                IN_PROGRESS: '47fc9ee4',     // 💻 In Progress
-                DONE: '98236657'            // ✅ Done
+                BACKLOG: 'd04ab34f',
+                TODO: 'f75ad846',
+                IN_PROGRESS: '47fc9ee4',
+                DONE: '98236657'
               }
             };
 
@@ -87,11 +85,9 @@ jobs:
               const repo = context.payload.repository.name.toLowerCase();
               
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                // FE 레포지토리의 이슈는 Backlog로
                 if (repo === 'fe') {
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
                 }
-                // BE 레포지토리의 이슈는 Todo로
                 else if (repo === 'be') {
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.TODO);
                 }
@@ -117,9 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action == 'opened'
     steps:
-      - uses: actions/github-script@v6
-        env:
-          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+      - uses: actions/github-script@6.4.1
         with:
           github-token: ${{ github.token }}
           script: |
@@ -128,7 +122,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: context.payload.pull_request.number,
-                reviewers: ['choco5958', 'lim3873', 'tlswltjq']  // 자동 할당될 리뷰어 목록
+                reviewers: ['choco5958', 'lim3873', 'tlswltjq']
               });
             } catch (error) {
               console.error('Error adding reviewers:', error);
