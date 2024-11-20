@@ -1,171 +1,166 @@
 name: Project Board Automation
 
 on:
-  issues:
-    types: [opened, reopened, closed]
-  pull_request:
-    types: [opened, reopened, closed]
-
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  repository-projects: write
+ issues:
+   types: [opened, reopened, closed]
+ pull_request:
+   types: [opened, reopened, closed]
 
 jobs:
-  project_automation:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ['20.x']
-    steps:
-      - uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const PROJECT = {
-              ID: 'PVT_kwDOC0FCP84AsibV',
-              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
-              COLUMNS: {
-                BACKLOG: '17052d30',        // 📋 Backlog
-                SPRINT_BACKLOG: '2b4b3335', // 📅 Sprint Backlog
-                IN_PROGRESS: 'dc54b4f8',    // 💻 In Progress
-                IN_REVIEW: '3fdc4773',      // 👀 In Review
-                DONE: '98236657'            // ✅ Done
-              }
-            };
+ project_automation:
+   runs-on: ubuntu-latest
+   permissions:
+     issues: write
+     pull-requests: write
+     repository-projects: write
+     contents: read
+   steps:
+     - uses: actions/github-script@v7
+       with:
+         github-token: ${{ github.token }}
+         script: |
+           // 프로젝트 관련 상수 정의
+           const PROJECT = {
+             ID: 'PVT_kwDOC0FCP84AsibV',              // 프로젝트 ID
+             STATUS_FIELD_ID: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',  // 상태 필드 ID
+             COLUMNS: {
+               BACKLOG: '17052d30',        // 📋 Backlog
+               SPRINT_BACKLOG: '2b4b3335', // 📅 Sprint Backlog
+               IN_PROGRESS: 'dc54b4f8',    // 💻 In Progress
+               IN_REVIEW: '3fdc4773',      // 👀 In Review
+               DONE: '98236657'            // ✅ Done
+             }
+           };
 
-            async function moveIssueToColumn(nodeId, columnId) {
-              if (!nodeId) {
-                console.error('Error: nodeId is empty');
-                return;
-              }
+           async function findProjectV2Item(contentId) {
+             const query = `
+               query($projectId: ID!, $contentId: ID!) {
+                 node(id: $projectId) {
+                   ... on ProjectV2 {
+                     items(first: 1, filter: {contentId: $contentId}) {
+                       nodes {
+                         id
+                       }
+                     }
+                   }
+                 }
+               }
+             `;
+             
+             const result = await github.graphql(query, {
+               projectId: PROJECT.ID,
+               contentId: contentId
+             });
+             
+             return result?.node?.items?.nodes[0]?.id;
+           }
 
-              try {
-                console.log('Adding item with nodeId:', nodeId);
-                console.log('Project ID:', PROJECT.ID);
-                
-                const addToProjectMutation = `
-                  mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemById(input: {
-                      projectId: $projectId
-                      contentId: $contentId
-                    }) {
-                      item {
-                        id
-                      }
-                    }
-                  }
-                `;
+           async function moveIssueToColumn(contentId, columnId) {
+             try {
+               const addMutation = `
+                 mutation($projectId: ID!, $contentId: ID!) {
+                   addProjectV2ItemById(input: {
+                     projectId: $projectId
+                     contentId: $contentId
+                   }) {
+                     item {
+                       id
+                     }
+                   }
+                 }
+               `;
 
-                const addResponse = await github.graphql(addToProjectMutation, {
-                  projectId: PROJECT.ID,
-                  contentId: nodeId
-                });
+               const { addProjectV2ItemById } = await github.graphql(addMutation, {
+                 projectId: PROJECT.ID,
+                 contentId: contentId
+               });
 
-                if (!addResponse?.addProjectV2ItemById?.item?.id) {
-                  throw new Error('Failed to add item to project');
-                }
+               const itemId = addProjectV2ItemById?.item?.id || await findProjectV2Item(contentId);
 
-                const itemId = addResponse.addProjectV2ItemById.item.id;
-                console.log('Item added successfully, itemId:', itemId);
+               if (itemId) {
+                 const updateMutation = `
+                   mutation(
+                     $projectId: ID!
+                     $itemId: ID!
+                     $fieldId: ID!
+                     $optionId: String!
+                   ) {
+                     updateProjectV2ItemFieldValue(
+                       input: {
+                         projectId: $projectId
+                         itemId: $itemId
+                         fieldId: $fieldId
+                         value: { 
+                           singleSelectOptionId: $optionId
+                         }
+                       }
+                     ) {
+                       projectV2Item {
+                         id
+                       }
+                     }
+                   }
+                 `;
 
-                const updateStatusMutation = `
-                  mutation($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $columnId: String!) {
-                    updateProjectV2ItemFieldValue(input: {
-                      projectId: $projectId
-                      itemId: $itemId
-                      fieldId: $statusFieldId
-                      value: { 
-                        singleSelectOptionId: $columnId
-                      }
-                    }) {
-                      projectV2Item {
-                        id
-                      }
-                    }
-                  }
-                `;
+                 await github.graphql(updateMutation, {
+                   projectId: PROJECT.ID,
+                   itemId: itemId,
+                   fieldId: PROJECT.STATUS_FIELD_ID,
+                   optionId: columnId
+                 });
+               }
+             } catch (error) {
+               console.error('Error:', error);
+             }
+           }
 
-                await github.graphql(updateStatusMutation, {
-                  projectId: PROJECT.ID,
-                  itemId: itemId,
-                  statusFieldId: PROJECT.STATUS_FIELD,
-                  columnId: columnId
-                });
+           // 이슈 이벤트 처리
+           if (context.eventName === 'issues') {
+             const issueId = context.payload.issue.node_id;
+             const repo = context.payload.repository.name.toLowerCase();
+             
+             if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+               if (repo === 'fe') {
+                 await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
+               }
+               else if (repo === 'be') {
+                 await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
+               }
+             }
+             else if (context.payload.action === 'closed') {
+               await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
+             }
+           }
 
-                console.log('Status updated successfully');
-              } catch (error) {
-                console.error('Error details:', error.message);
-                if (error.request) console.error('Request:', error.request);
-                if (error.response) console.error('Response:', error.response);
-                throw error;
-              }
-            }
+           // PR 이벤트 처리 
+           if (context.eventName === 'pull_request') {
+             const prId = context.payload.pull_request.node_id;
+             
+             if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+               await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
+             }
+             else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+               await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+             }
+           }
 
-            // 이슈 자동화
-            if (context.eventName === 'issues') {
-              console.log('Processing issue event');
-              const issueId = context.payload.issue?.node_id;
-              if (!issueId) {
-                console.error('No issue node_id found in payload');
-                return;
-              }
-              
-              const repo = context.payload.repository.name.toLowerCase();
-              console.log('Repository:', repo);
-              console.log('Action:', context.payload.action);
-              
-              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                if (repo === 'fe') {
-                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
-                } else if (repo === 'be') {
-                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
-                }
-              } else if (context.payload.action === 'closed') {
-                await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
-              }
-            }
-
-            // PR 자동화
-            if (context.eventName === 'pull_request') {
-              console.log('Processing pull request event');
-              const prId = context.payload.pull_request?.node_id;
-              if (!prId) {
-                console.error('No PR node_id found in payload');
-                return;
-              }
-              
-              console.log('Action:', context.payload.action);
-              console.log('Merged:', context.payload.pull_request.merged);
-              
-              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
-              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
-              }
-            }
-
-  add_reviewers:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ['20.x']
-    if: github.event_name == 'pull_request' && github.event.action == 'opened'
-    steps:
-      - uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            try {
-              await github.rest.pulls.requestReviewers({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
-                reviewers: ['choco5958', 'lim3873', 'tlswltjq']
-              });
-              console.log('Reviewers added successfully');
-            } catch (error) {
-              console.error('Error adding reviewers:', error);
-              throw error;
-            }
+ add_reviewers:
+   runs-on: ubuntu-latest
+   if: github.event_name == 'pull_request' && github.event.action == 'opened'
+   permissions:
+     pull-requests: write
+   steps:
+     - uses: actions/github-script@v7
+       with:
+         github-token: ${{ github.token }}
+         script: |
+           try {
+             await github.rest.pulls.requestReviewers({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               pull_number: context.payload.pull_request.number,
+               reviewers: ['choco5958', 'lim3873', 'tlswltjq']
+             });
+           } catch (error) {
+             console.error('Error adding reviewers:', error);
+           }
