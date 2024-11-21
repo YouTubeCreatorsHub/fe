@@ -20,6 +20,7 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
+            console.log(process.env.AUTO_ACTIONS);
             async function fetchProjectDetails() {
               const query = `
                 query($org: String!, $projectNumber: Int!) {
