@@ -17,33 +17,19 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
+      
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            const PROJECT = {
-              ID: '',
-              COLUMNS: {
-                BACKLOG: '17052d30',
-                SPRINT_BACKLOG: '2b4b3335',
-                IN_PROGRESS: 'dc54b4f8',
-                IN_REVIEW: '3fdc4773',
-                DONE: '98236657'
-              }
-            };
-
-            // Fetch project details
-            async function fetchProjectDetails() {
+            const STATUS_FIELD_ID = 'Status'; // Replace with your actual Status field ID
+            
+            // First fetch the project ID and field information
+            async function getProjectInfo() {
               const query = `
-                query($org: String!, $projectNumber: Int!) {
+                query($org: String!, $number: Int!) {
                   organization(login: $org) {
-                    projectV2(number: $projectNumber) {
+                    projectV2(number: $number) {
                       id
                       fields(first: 20) {
                         nodes {
@@ -61,118 +47,103 @@ jobs:
                   }
                 }
               `;
-              const variables = { org: "YouTubeCreatorsHub", projectNumber: 1 };
-
-              try {
-                console.log('Fetching project details...');
-                const result = await github.graphql(query, variables);
-                console.log('GraphQL Result:', JSON.stringify(result)); // Log the result
-
-                const project = result.organization?.projectV2;
-                if (!project) throw new Error('Project not found.');
-
-                const statusField = project.fields.nodes.find(field => 
-                  field.name === 'Status' && field.options
-                );
-                if (!statusField) throw new Error('Status field not found.');
-
-                const columns = {
-                  BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
-                  SPRINT_BACKLOG: statusField.options.find(opt => opt.name === 'Sprint Backlog')?.id,
-                  IN_PROGRESS: statusField.options.find(opt => opt.name === 'In Progress')?.id,
-                  IN_REVIEW: statusField.options.find(opt => opt.name === 'In Review')?.id,
-                  DONE: statusField.options.find(opt => opt.name === 'Done')?.id
-                };
-
-                console.log('Fetched Project Details:', { projectId: project.id, columns });
-                return { projectId: project.id, columns };
-              } catch (error) {
-                console.error('Error fetching project details:', error.message);
-                throw error;
-              }
+              
+              const result = await github.graphql(query, {
+                org: 'YouTubeCreatorsHub',
+                number: 1 // Your project number
+              });
+              
+              return result.organization.projectV2;
             }
-
-            // Initialize project data
-            async function initializeProject() {
-              if (!PROJECT.ID) {
-                try {
-                  const projectDetails = await fetchProjectDetails();
-                  if (!projectDetails) {
-                    console.error('Project details not fetched.');
-                    return;
-                  }
-
-                  PROJECT.ID = projectDetails.projectId;
-                  PROJECT.COLUMNS = projectDetails.columns;
-                  console.log('Initialized PROJECT:', PROJECT);
-                } catch (error) {
-                  console.error('Error initializing project:', error.message);
-                }
-              }
-            }
-
-            // Move issue to appropriate column
-            async function moveIssueToColumn(contentId, columnId) {
-              if (!PROJECT.ID || !columnId) {
-                console.error('PROJECT ID or Column ID is missing');
-                return; // Skip if missing IDs
-              }
-
-              try {
-                const addMutation = `
-                  mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-                      item { id }
+            
+            // Add item to project
+            async function addItemToProject(projectId, contentId) {
+              const mutation = `
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId,
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
                     }
                   }
-                `;
-                const addResult = await github.graphql(addMutation, { projectId: PROJECT.ID, contentId });
-                const itemId = addResult.addProjectV2ItemById?.item?.id;
-
-                if (!itemId) throw new Error('Failed to add item to project.');
-
-                const updateMutation = `
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                    updateProjectV2ItemFieldValue(
-                      input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { singleSelectOptionId: $optionId } }
-                    ) { projectV2Item { id } }
+                }
+              `;
+              
+              const result = await github.graphql(mutation, {
+                projectId,
+                contentId
+              });
+              
+              return result.addProjectV2ItemById.item.id;
+            }
+            
+            // Update item's status
+            async function updateItemStatus(projectId, itemId, statusId) {
+              const mutation = `
+                mutation($projectId: ID!, $itemId: ID!, $statusId: String!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId,
+                    itemId: $itemId,
+                    fieldId: "${STATUS_FIELD_ID}",
+                    value: { singleSelectOptionId: $statusId }
+                  }) {
+                    projectV2Item {
+                      id
+                    }
                   }
-                `;
-                await github.graphql(updateMutation, { 
-                  projectId: PROJECT.ID,
-                  itemId,
-                  fieldId: PROJECT.COLUMNS.STATUS_FIELD_ID,
-                  optionId: columnId 
-                });
-              } catch (error) {
-                console.error('Error moving item to column:', error.message);
-              }
+                }
+              `;
+              
+              await github.graphql(mutation, {
+                projectId,
+                itemId,
+                statusId
+              });
             }
-
-            // Process the event and move the issue accordingly
-            async function processEvent() {
-              await initializeProject();
-
-              if (!PROJECT.ID || !PROJECT.COLUMNS) {
-                console.error('Project initialization failed, skipping event processing.');
-                return;
-              }
-
+            
+            try {
+              // Get project information
+              const project = await getProjectInfo();
+              const statusField = project.fields.nodes.find(f => f.name === 'Status');
+              
+              // Map status names to IDs
+              const statusMap = {
+                BACKLOG: statusField.options.find(o => o.name === 'Backlog').id,
+                SPRINT_BACKLOG: statusField.options.find(o => o.name === 'Sprint Backlog').id,
+                IN_PROGRESS: statusField.options.find(o => o.name === 'In Progress').id,
+                IN_REVIEW: statusField.options.find(o => o.name === 'In Review').id,
+                DONE: statusField.options.find(o => o.name === 'Done').id
+              };
+              
+              let contentId, targetStatus;
+              
               if (context.eventName === 'issues') {
-                const issueNodeID = context.payload.issue.node_id;
-                if (context.payload.action === 'opened' || context.payload.action === 'reopened') 
-                  await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.BACKLOG);
-                else if (context.payload.action === 'closed')
-                  await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.DONE);
+                contentId = context.payload.issue.node_id;
+                const repo = context.payload.repository.name.toLowerCase();
+                
+                if (context.payload.action === 'opened') {
+                  targetStatus = repo === 'fe' ? statusMap.BACKLOG : statusMap.SPRINT_BACKLOG;
+                } else if (context.payload.action === 'closed') {
+                  targetStatus = statusMap.DONE;
+                }
+              } else if (context.eventName === 'pull_request') {
+                contentId = context.payload.pull_request.node_id;
+                
+                if (context.payload.action === 'opened') {
+                  targetStatus = statusMap.IN_REVIEW;
+                } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                  targetStatus = statusMap.DONE;
+                }
               }
-
-              if (context.eventName === 'pull_request') {
-                const prNodeID = context.payload.pull_request.node_id;
-                if (context.payload.action === 'opened' || context.payload.action === 'reopened')
-                  await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.IN_REVIEW);
-                else if (context.payload.action === 'closed' && context.payload.pull_request.merged)
-                  await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.DONE);
+              
+              if (contentId && targetStatus) {
+                const itemId = await addItemToProject(project.id, contentId);
+                await updateItemStatus(project.id, itemId, targetStatus);
               }
+              
+            } catch (error) {
+              console.error('Error:', error.message);
+              throw error;
             }
-
-            await processEvent();
