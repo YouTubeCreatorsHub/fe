@@ -17,50 +17,76 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secret.PROJECT_TOKEN }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            // 프로젝트 관련 상수 정의
-            const PROJECT = {
-              ID: 'PVT_kwDOC0FCP84AsibV',              // 프로젝트 ID
-              STATUS_FIELD_ID: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',  // 상태 필드 ID
-              COLUMNS: {
-                BACKLOG: '17052d30',        // 📋 Backlog
-                SPRINT_BACKLOG: '2b4b3335', // 📅 Sprint Backlog
-                IN_PROGRESS: 'dc54b4f8',    // 💻 In Progress
-                IN_REVIEW: '3fdc4773',      // 👀 In Review
-                DONE: '98236657'            // ✅ Done
-              }
-            };
-
-            async function findProjectV2Item(contentId) {
+            async function fetchProjectDetails() {
               const query = `
-                query($projectId: ID!, $contentId: ID!) {
-                  node(id: $projectId) {
-                    ... on ProjectV2 {
-                      items(first: 1, filter: {contentId: $contentId}) {
+                query($org: String!, $projectNumber: Int!) {
+                  organization(login: $org) {
+                    projectV2(number: $projectNumber) {
+                      id
+                      fields(first: 20) {
                         nodes {
-                          id
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
                         }
                       }
                     }
                   }
                 }
               `;
-              
-              const result = await github.graphql(query, {
-                projectId: PROJECT.ID,
-                contentId: contentId
-              });
-              
-              return result?.node?.items?.nodes[0]?.id;
+
+              const variables = {
+                org: "YouTubeCreatorsHub",
+                projectNumber: 1,
+              };
+
+              const result = await github.graphql(query, variables);
+              const project = result.organization.projectV2;
+              const statusField = project.fields.nodes.find(field => field.name === 'Status');
+
+              if (!statusField) {
+                throw new Error('Status 필드를 찾을 수 없습니다.');
+              }
+
+              const columns = {
+                BACKLOG: statusField.options.find(opt => opt.name === '📋 Backlog')?.id,
+                SPRINT_BACKLOG: statusField.options.find(opt => opt.name === '📅 Sprint Backlog')?.id,
+                IN_PROGRESS: statusField.options.find(opt => opt.name === '💻 In Progress')?.id,
+                IN_REVIEW: statusField.options.find(opt => opt.name === '👀 In Review')?.id,
+                DONE: statusField.options.find(opt => opt.name === '✅ Done')?.id
+              };
+
+              return {
+                projectId: project.id,
+                statusFieldId: statusField.id,
+                columns
+              };
+            }
+
+            let PROJECT;
+
+            async function initProjectDetails() {
+              if (!PROJECT) {
+                PROJECT = await fetchProjectDetails();
+              }
             }
 
             async function moveIssueToColumn(contentId, columnId) {
+              await initProjectDetails();
+              const { projectId, statusFieldId } = PROJECT;
+
               try {
                 const addMutation = `
                   mutation($projectId: ID!, $contentId: ID!) {
                     addProjectV2ItemById(input: {
-                      projectId: $projectId
+                      projectId: $projectId,
                       contentId: $contentId
                     }) {
                       item {
@@ -71,11 +97,11 @@ jobs:
                 `;
 
                 const { addProjectV2ItemById } = await github.graphql(addMutation, {
-                  projectId: PROJECT.ID,
-                  contentId: contentId
+                  projectId,
+                  contentId
                 });
 
-                const itemId = addProjectV2ItemById?.item?.id || await findProjectV2Item(contentId);
+                const itemId = addProjectV2ItemById?.item?.id;
 
                 if (itemId) {
                   const updateMutation = `
@@ -87,9 +113,9 @@ jobs:
                     ) {
                       updateProjectV2ItemFieldValue(
                         input: {
-                          projectId: $projectId
-                          itemId: $itemId
-                          fieldId: $fieldId
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
                           value: { 
                             singleSelectOptionId: $optionId
                           }
@@ -103,9 +129,9 @@ jobs:
                   `;
 
                   await github.graphql(updateMutation, {
-                    projectId: PROJECT.ID,
-                    itemId: itemId,
-                    fieldId: PROJECT.STATUS_FIELD_ID,
+                    projectId,
+                    itemId,
+                    fieldId: statusFieldId,
                     optionId: columnId
                   });
                 }
@@ -114,35 +140,34 @@ jobs:
               }
             }
 
-            // 이슈 이벤트 처리
-            if (context.eventName === 'issues') {
-              const issueId = context.payload.issue.node_id;
-              const repo = context.payload.repository.name.toLowerCase();
-              
-              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                if (repo === 'fe') {
-                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
-                }
-                else if (repo === 'be') {
-                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
+            async function processEvent() {
+              if (context.eventName === 'issues') {
+                const issueId = context.payload.issue.node_id;
+                const repo = context.payload.repository.name.toLowerCase();
+                
+                if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                  if (repo === 'fe') {
+                    await moveIssueToColumn(issueId, PROJECT.columns.BACKLOG);
+                  } else if (repo === 'be') {
+                    await moveIssueToColumn(issueId, PROJECT.columns.SPRINT_BACKLOG);
+                  }
+                } else if (context.payload.action === 'closed') {
+                  await moveIssueToColumn(issueId, PROJECT.columns.DONE);
                 }
               }
-              else if (context.payload.action === 'closed') {
-                await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
+
+              if (context.eventName === 'pull_request') {
+                const prId = context.payload.pull_request.node_id;
+                
+                if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                  await moveIssueToColumn(prId, PROJECT.columns.IN_REVIEW);
+                } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                  await moveIssueToColumn(prId, PROJECT.columns.DONE);
+                }
               }
             }
 
-            // PR 이벤트 처리 
-            if (context.eventName === 'pull_request') {
-              const prId = context.payload.pull_request.node_id;
-              
-              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
-              }
-              else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
-              }
-            }
+            await processEvent();
 
   add_reviewers:
     runs-on: ubuntu-latest
@@ -152,7 +177,7 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secret.PROJECT_TOKEN }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
             try {
               await github.rest.pulls.requestReviewers({
