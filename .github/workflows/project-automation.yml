@@ -43,19 +43,19 @@ jobs:
                 }
               `;
 
-              try {
-                const variables = {
-                  org: "YouTubeCreatorsHub",  // 조직 이름 확인 필요
-                  projectNumber: 1           // 프로젝트 번호 확인 필요
-                };
+              const variables = {
+                org: "YouTubeCreatorsHub",  // 조직 이름 확인 필요
+                projectNumber: 1           // 프로젝트 번호 확인 필요
+              };
 
-                console.log('GraphQL Variables:', JSON.stringify(variables));
+              try {
+                console.log('Fetching project details...');
                 const result = await github.graphql(query, variables);
-                console.log('GraphQL Result:', JSON.stringify(result));
+                console.log('GraphQL Result:', JSON.stringify(result, null, 2));
 
                 const project = result.organization.projectV2;
                 if (!project) throw new Error('Project not found');
-                
+
                 const statusField = project.fields.nodes.find(field => 
                   field.name === 'Status' && field.options
                 );
@@ -153,11 +153,11 @@ jobs:
             async function processEvent() {
               try {
                 PROJECT = await fetchProjectDetails();
-                
+
                 if (context.eventName === 'issues') {
                   const issueId = context.payload.issue.node_id;
                   const repo = context.payload.repository.name.toLowerCase();
-                  
+
                   if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                     if (repo === 'fe') {
                       await moveIssueToColumn(issueId, PROJECT.columns.BACKLOG);
@@ -171,7 +171,7 @@ jobs:
 
                 if (context.eventName === 'pull_request') {
                   const prId = context.payload.pull_request.node_id;
-                  
+
                   if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                     await moveIssueToColumn(prId, PROJECT.columns.IN_REVIEW);
                   } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
