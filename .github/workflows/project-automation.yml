@@ -16,6 +16,16 @@ jobs:
       repository-projects: write
       contents: read
     steps:
+      # Checkout the repository code
+      - uses: actions/checkout@v4
+
+      # Setup Node.js 20 explicitly
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      # Run the GitHub Script action with the updated version (Node.js 20 compatible)
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
