@@ -20,73 +20,68 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            console.log(process.env.AUTO_ACTIONS);
             async function fetchProjectDetails() {
-              const query = `
-                query($org: String!, $projectNumber: Int!) {
-                  organization(login: $org) {
-                    projectV2(number: $projectNumber) {
-                      id
-                      fields(first: 20) {
-                        nodes {
-                          ... on ProjectV2SingleSelectField {
-                            id
-                            name
-                            options {
+                const query = `
+                  query($org: String!, $projectNumber: Int!) {
+                    organization(login: $org) {
+                      projectV2(number: $projectNumber) {
+                        id
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2SingleSelectField {
                               id
                               name
+                              options {
+                                id
+                                name
+                              }
                             }
                           }
                         }
                       }
                     }
                   }
+                `;
+              
+                try {
+                  const variables = {
+                    org: "YouTubeCreatorsHub",  // 조직 이름
+                    projectNumber: 1            // 프로젝트 번호 (칸반 보드가 있는 프로젝트 번호)
+                  };
+              
+                  console.log('GraphQL Variables:', JSON.stringify(variables));
+                  const result = await github.graphql(query, variables);
+                  console.log('GraphQL Result:', JSON.stringify(result));
+              
+                  const project = result.organization.projectV2;
+                  if (!project) throw new Error('Project not found');
+                  
+                  const statusField = project.fields.nodes.find(field => 
+                    field.name === 'Status' && field.options
+                  );
+                  if (!statusField) throw new Error('Status field not found');
+              
+                  const columns = {
+                    BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
+                    SPRINT_BACKLOG: statusField.options.find(opt => opt.name === 'Sprint Backlog')?.id,
+                    IN_PROGRESS: statusField.options.find(opt => opt.name === 'In Progress')?.id,
+                    IN_REVIEW: statusField.options.find(opt => opt.name === 'In Review')?.id,
+                    DONE: statusField.options.find(opt => opt.name === 'Done')?.id
+                  };
+              
+                  console.log('Columns:', JSON.stringify(columns));
+              
+                  return {
+                    projectId: project.id, // 프로젝트 ID
+                    statusFieldId: statusField.id,
+                    columns
+                  };
+                } catch (error) {
+                  console.error('Error in fetchProjectDetails:', error);
+                  throw error;
                 }
-              `;
-
-              try {
-                const variables = {
-                  org: "YouTubeCreatorsHub",  // 조직 이름 확인 필요
-                  projectNumber: 1           // 프로젝트 번호 확인 필요
-                };
-
-                console.log('GraphQL Variables:', JSON.stringify(variables));
-                const result = await github.graphql(query, variables);
-                console.log('GraphQL Result:', JSON.stringify(result));
-
-                const project = result.organization.projectV2;
-                if (!project) throw new Error('Project not found');
-
-                const statusField = project.fields.nodes.find(field => 
-                  field.name === 'Status' && field.options
-                );
-                if (!statusField) throw new Error('Status field not found');
-
-                const columns = {
-                  BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
-                  SPRINT_BACKLOG: statusField.options.find(opt => opt.name === 'Sprint Backlog')?.id,
-                  IN_PROGRESS: statusField.options.find(opt => opt.name === 'In Progress')?.id,
-                  IN_REVIEW: statusField.options.find(opt => opt.name === 'In Review')?.id,
-                  DONE: statusField.options.find(opt => opt.name === 'Done')?.id
-                };
-
-                // 프로젝트 및 필드 데이터 로깅
-                console.log('Project Details:', {
-                  projectId: project.id,
-                  statusFieldId: statusField.id,
-                  columns
-                });
-
-                return {
-                  projectId: project.id,
-                  statusFieldId: statusField.id,
-                  columns
-                };
-              } catch (error) {
-                console.error('Error in fetchProjectDetails:', error);
-                throw error;
               }
-            }
+    
 
             async function moveIssueToColumn(contentId, columnId) {
               if (!PROJECT) {
