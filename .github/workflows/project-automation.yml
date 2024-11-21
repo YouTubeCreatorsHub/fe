@@ -62,7 +62,7 @@ jobs:
               try {
                 console.log('Fetching project details...');
                 const result = await github.graphql(query, variables);
-                console.log('GraphQL Result:', JSON.stringify(result));
+                console.log('GraphQL Result:', JSON.stringify(result)); // GraphQL 결과 로그 추가
 
                 const project = result.organization?.projectV2;
                 if (!project) throw new Error('Project not found.');
@@ -92,7 +92,7 @@ jobs:
                 try {
                   const projectDetails = await fetchProjectDetails();
                   PROJECT.ID = projectDetails.projectId;
-                  Object.assign(PROJECT.COLUMNS, projectDetails.columns);
+                  PROJECT.COLUMNS = projectDetails.columns;
                   console.log('Initialized PROJECT:', PROJECT);
                 } catch (error) {
                   console.error('Error initializing project:', error.message);
