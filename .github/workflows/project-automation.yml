@@ -22,18 +22,21 @@ jobs:
           script: |
             async function fetchProjectDetails() {
               const query = `
-                query($org: String!, $projectNumber: Int!) {
+                query($org: String!, $projectName: String!) {
                   organization(login: $org) {
-                    projectV2(number: $projectNumber) {
-                      id
-                      fields(first: 20) {
-                        nodes {
-                          ... on ProjectV2SingleSelectField {
-                            id
-                            name
-                            options {
+                    projectsV2(first: 10, query: $projectName) {
+                      nodes {
+                        id
+                        title
+                        fields(first: 20) {
+                          nodes {
+                            ... on ProjectV2SingleSelectField {
                               id
                               name
+                              options {
+                                id
+                                name
+                              }
                             }
                           }
                         }
@@ -44,8 +47,8 @@ jobs:
               `;
 
               const variables = {
-                org: "YouTubeCreatorsHub",  // 조직 이름 확인 필요
-                projectNumber: 1           // 프로젝트 번호 확인 필요
+                org: "YouTubeCreatorsHub",  // 조직 이름 확인
+                projectName: "🎨 CreatorHub Development" // 프로젝트 이름 확인
               };
 
               try {
@@ -53,7 +56,9 @@ jobs:
                 const result = await github.graphql(query, variables);
                 console.log('GraphQL Result:', JSON.stringify(result, null, 2));
 
-                const project = result.organization.projectV2;
+                const project = result.organization.projectsV2.nodes.find(
+                  p => p.title === "🎨 CreatorHub Development"
+                );
                 if (!project) throw new Error('Project not found');
 
                 const statusField = project.fields.nodes.find(field => 
