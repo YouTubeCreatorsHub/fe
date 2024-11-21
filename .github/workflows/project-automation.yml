@@ -22,21 +22,18 @@ jobs:
           script: |
             async function fetchProjectDetails() {
               const query = `
-                query($org: String!, $projectName: String!) {
+                query($org: String!, $projectNumber: Int!) {
                   organization(login: $org) {
-                    projectsV2(first: 10, query: $projectName) {
-                      nodes {
-                        id
-                        title
-                        fields(first: 20) {
-                          nodes {
-                            ... on ProjectV2SingleSelectField {
+                    projectV2(number: $projectNumber) {
+                      id
+                      fields(first: 20) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
                               id
                               name
-                              options {
-                                id
-                                name
-                              }
                             }
                           }
                         }
@@ -46,19 +43,17 @@ jobs:
                 }
               `;
 
-              const variables = {
-                org: "YouTubeCreatorsHub",  // 조직 이름 확인
-                projectName: "🎨 CreatorHub Development" // 프로젝트 이름 확인
-              };
-
               try {
-                console.log('Fetching project details...');
-                const result = await github.graphql(query, variables);
-                console.log('GraphQL Result:', JSON.stringify(result, null, 2));
+                const variables = {
+                  org: "YouTubeCreatorsHub",  // 조직 이름 확인 필요
+                  projectNumber: 1           // 프로젝트 번호 확인 필요
+                };
 
-                const project = result.organization.projectsV2.nodes.find(
-                  p => p.title === "🎨 CreatorHub Development"
-                );
+                console.log('GraphQL Variables:', JSON.stringify(variables));
+                const result = await github.graphql(query, variables);
+                console.log('GraphQL Result:', JSON.stringify(result));
+
+                const project = result.organization.projectV2;
                 if (!project) throw new Error('Project not found');
 
                 const statusField = project.fields.nodes.find(field => 
@@ -74,7 +69,12 @@ jobs:
                   DONE: statusField.options.find(opt => opt.name === 'Done')?.id
                 };
 
-                console.log('Columns:', JSON.stringify(columns));
+                // 프로젝트 및 필드 데이터 로깅
+                console.log('Project Details:', {
+                  projectId: project.id,
+                  statusFieldId: statusField.id,
+                  columns
+                });
 
                 return {
                   projectId: project.id,
@@ -158,11 +158,11 @@ jobs:
             async function processEvent() {
               try {
                 PROJECT = await fetchProjectDetails();
-
+                
                 if (context.eventName === 'issues') {
                   const issueId = context.payload.issue.node_id;
                   const repo = context.payload.repository.name.toLowerCase();
-
+                  
                   if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                     if (repo === 'fe') {
                       await moveIssueToColumn(issueId, PROJECT.columns.BACKLOG);
@@ -176,7 +176,7 @@ jobs:
 
                 if (context.eventName === 'pull_request') {
                   const prId = context.payload.pull_request.node_id;
-
+                  
                   if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                     await moveIssueToColumn(prId, PROJECT.columns.IN_REVIEW);
                   } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
@@ -190,24 +190,3 @@ jobs:
             }
 
             await processEvent();
-
-  add_reviewers:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'opened'
-    permissions:
-      pull-requests: write
-    steps:
-      - uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.AUTO_ACTIONS }}
-          script: |
-            try {
-              await github.rest.pulls.requestReviewers({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.payload.pull_request.number,
-                reviewers: ['choco5958', 'lim3873', 'tlswltjq']
-              });
-            } catch (error) {
-              console.error('Error adding reviewers:', error);
-            }
