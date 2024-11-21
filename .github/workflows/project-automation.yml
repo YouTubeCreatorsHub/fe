@@ -29,7 +29,13 @@ jobs:
           script: |
             const PROJECT = {
               ID: '',
-              COLUMNS: {}
+              COLUMNS: {
+                BACKLOG: '17052d30',
+                SPRINT_BACKLOG: '2b4b3335',
+                IN_PROGRESS: 'dc54b4f8',
+                IN_REVIEW: '3fdc4773',
+                DONE: '98236657'
+              }
             };
 
             // Fetch project details
@@ -78,13 +84,15 @@ jobs:
                   DONE: statusField.options.find(opt => opt.name === 'Done')?.id
                 };
 
-                return { projectId: project.id, statusFieldId: statusField.id, columns };
+                console.log('Fetched Project Details:', { projectId: project.id, columns });
+                return { projectId: project.id, columns };
               } catch (error) {
                 console.error('Error fetching project details:', error.message);
                 throw error;
               }
             }
 
+            // Initialize project data
             async function initializeProject() {
               if (!PROJECT.ID) {
                 try {
@@ -93,6 +101,7 @@ jobs:
                     console.error('Project details not fetched.');
                     return;
                   }
+
                   PROJECT.ID = projectDetails.projectId;
                   PROJECT.COLUMNS = projectDetails.columns;
                   console.log('Initialized PROJECT:', PROJECT);
@@ -102,6 +111,7 @@ jobs:
               }
             }
 
+            // Move issue to appropriate column
             async function moveIssueToColumn(contentId, columnId) {
               if (!PROJECT.ID || !columnId) {
                 console.error('PROJECT ID or Column ID is missing');
@@ -139,6 +149,7 @@ jobs:
               }
             }
 
+            // Process the event and move the issue accordingly
             async function processEvent() {
               await initializeProject();
 
