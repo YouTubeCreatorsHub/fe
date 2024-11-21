@@ -21,14 +21,8 @@ jobs:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
             const PROJECT = {
-              ID: '', // 동적으로 할당될 프로젝트 ID
-              COLUMNS: {
-                BACKLOG: '',        // 📋 아직 스프린트에 할당되지 않은 전체 작업
-                SPRINT_BACKLOG: '', // 📅 현재 스프린트에서 진행할 작업들
-                IN_PROGRESS: '',    // 💻 현재 진행 중인 작업
-                IN_REVIEW: '',      // 👀 PR 생성되어 코드 리뷰 중인 작업
-                DONE: ''            // ✅ 완료되고 배포된 작업
-              }
+              ID: '',
+              COLUMNS: {}
             };
 
             async function fetchProjectDetails() {
@@ -53,26 +47,20 @@ jobs:
                   }
                 }
               `;
-
-              const variables = {
-                org: "YouTubeCreatorsHub", // 조직 이름 (정확히 입력)
-                projectNumber: 1          // 프로젝트 번호 (URL에서 확인)
-              };
+              const variables = { org: "YouTubeCreatorsHub", projectNumber: 1 };
 
               try {
                 console.log('Fetching project details...');
-                console.log('GraphQL Variables:', JSON.stringify(variables));
-
                 const result = await github.graphql(query, variables);
                 console.log('GraphQL Result:', JSON.stringify(result));
 
                 const project = result.organization?.projectV2;
-                if (!project) throw new Error('Project not found. Check organization name or project number.');
+                if (!project) throw new Error('Project not found.');
 
                 const statusField = project.fields.nodes.find(field => 
                   field.name === 'Status' && field.options
                 );
-                if (!statusField) throw new Error('Status field not found. Check field name.');
+                if (!statusField) throw new Error('Status field not found.');
 
                 const columns = {
                   BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
@@ -82,13 +70,7 @@ jobs:
                   DONE: statusField.options.find(opt => opt.name === 'Done')?.id
                 };
 
-                console.log('Columns:', JSON.stringify(columns));
-
-                return {
-                  projectId: project.id,
-                  statusFieldId: statusField.id,
-                  columns
-                };
+                return { projectId: project.id, statusFieldId: statusField.id, columns };
               } catch (error) {
                 console.error('Error fetching project details:', error.message);
                 throw error;
@@ -96,100 +78,70 @@ jobs:
             }
 
             async function initializeProject() {
-              try {
-                const projectDetails = await fetchProjectDetails();
-                
-                PROJECT.ID = projectDetails.projectId; // 프로젝트 ID 동적 할당
-                Object.assign(PROJECT.COLUMNS, projectDetails.columns); // 컬럼 ID 동적 할당
-
-                console.log('Initialized PROJECT:', PROJECT);
-              } catch (error) {
-                console.error('Error initializing project:', error.message);
+              if (!PROJECT.ID) {
+                try {
+                  const projectDetails = await fetchProjectDetails();
+                  PROJECT.ID = projectDetails.projectId;
+                  Object.assign(PROJECT.COLUMNS, projectDetails.columns);
+                  console.log('Initialized PROJECT:', PROJECT);
+                } catch (error) {
+                  console.error('Error initializing project:', error.message);
+                  throw error;
+                }
               }
             }
 
             async function moveIssueToColumn(contentId, columnId) {
-              if (!PROJECT.ID) await initializeProject(); // 프로젝트 초기화
-
-              console.log('Moving item to column:', { contentId, columnId });
+              if (!PROJECT.ID || !columnId) await initializeProject();
 
               try {
                 const addMutation = `
                   mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemById(input: {
-                      projectId: $projectId,
-                      contentId: $contentId
-                    }) {
-                      item {
-                        id
-                      }
+                    addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+                      item { id }
                     }
                   }
                 `;
-
-                const addResult = await github.graphql(addMutation, {
-                  projectId: PROJECT.ID,
-                  contentId
-                });
-
+                const addResult = await github.graphql(addMutation, { projectId: PROJECT.ID, contentId });
                 const itemId = addResult.addProjectV2ItemById?.item?.id;
+
                 if (!itemId) throw new Error('Failed to add item to project.');
 
                 const updateMutation = `
                   mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
                     updateProjectV2ItemFieldValue(
-                      input: {
-                        projectId: $projectId,
-                        itemId: $itemId,
-                        fieldId: $fieldId,
-                        value: { singleSelectOptionId: $optionId }
-                      }
-                    ) {
-                      projectV2Item {
-                        id
-                      }
-                    }
+                      input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { singleSelectOptionId: $optionId } }
+                    ) { projectV2Item { id } }
                   }
                 `;
-
-                await github.graphql(updateMutation, {
+                await github.graphql(updateMutation, { 
                   projectId: PROJECT.ID,
                   itemId,
                   fieldId: PROJECT.COLUMNS.STATUS_FIELD_ID,
-                  optionId: columnId
+                  optionId: columnId 
                 });
-
-                console.log('Successfully moved item to column');
               } catch (error) {
                 console.error('Error moving item to column:', error.message);
               }
             }
 
             async function processEvent() {
-              try {
-                if (!PROJECT.ID) await initializeProject(); // 프로젝트 초기화
+              await initializeProject();
 
-                if (context.eventName === 'issues') {
-                  const issueNodeID = context.payload.issue.node_id;
-                  
-                  if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                    await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.BACKLOG);
-                  } else if (context.payload.action === 'closed') {
-                    await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.DONE);
-                  }
-                }
+              if (context.eventName === 'issues') {
+                const issueNodeID = context.payload.issue.node_id;
+                if (context.payload.action === 'opened' || context.payload.action === 'reopened') 
+                  await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.BACKLOG);
+                else if (context.payload.action === 'closed')
+                  await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.DONE);
+              }
 
-                if (context.eventName === 'pull_request') {
-                  const prNodeID = context.payload.pull_request.node_id;
-
-                  if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                    await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.IN_REVIEW);
-                  } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                    await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.DONE);
-                  }
-                }
-              } catch (error) {
-                console.error('Error processing event:', error.message);
+              if (context.eventName === 'pull_request') {
+                const prNodeID = context.payload.pull_request.node_id;
+                if (context.payload.action === 'opened' || context.payload.action === 'reopened')
+                  await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.IN_REVIEW);
+                else if (context.payload.action === 'closed' && context.payload.pull_request.merged)
+                  await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.DONE);
               }
             }
 
