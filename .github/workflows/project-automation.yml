@@ -45,21 +45,21 @@ jobs:
               
                 try {
                   const variables = {
-                    org: "YouTubeCreatorsHub",  // 조직 이름
-                    projectNumber: 1            // 프로젝트 번호 (칸반 보드가 있는 프로젝트 번호)
+                    org: "YouTubeCreatorsHub",  // 조직 이름 (정확히 입력)
+                    projectNumber: 1           // 프로젝트 번호 (URL에서 확인)
                   };
               
                   console.log('GraphQL Variables:', JSON.stringify(variables));
                   const result = await github.graphql(query, variables);
                   console.log('GraphQL Result:', JSON.stringify(result));
               
-                  const project = result.organization.projectV2;
-                  if (!project) throw new Error('Project not found');
+                  const project = result.organization?.projectV2;
+                  if (!project) throw new Error('Project not found. Check organization name or project number.');
                   
                   const statusField = project.fields.nodes.find(field => 
                     field.name === 'Status' && field.options
                   );
-                  if (!statusField) throw new Error('Status field not found');
+                  if (!statusField) throw new Error('Status field not found. Check field name.');
               
                   const columns = {
                     BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
@@ -72,16 +72,15 @@ jobs:
                   console.log('Columns:', JSON.stringify(columns));
               
                   return {
-                    projectId: project.id, // 프로젝트 ID
+                    projectId: project.id,
                     statusFieldId: statusField.id,
                     columns
                   };
                 } catch (error) {
-                  console.error('Error in fetchProjectDetails:', error);
+                  console.error('Error in fetchProjectDetails:', error.message);
                   throw error;
                 }
               }
-    
 
             async function moveIssueToColumn(contentId, columnId) {
               if (!PROJECT) {
@@ -144,7 +143,7 @@ jobs:
 
                 console.log('Successfully moved item to column');
               } catch (error) {
-                console.error('Error in moveIssueToColumn:', error);
+                console.error('Error in moveIssueToColumn:', error.message);
                 throw error;
               }
             }
@@ -180,7 +179,7 @@ jobs:
                   }
                 }
               } catch (error) {
-                console.error('Error in processEvent:', error);
+                console.error('Error in processEvent:', error.message);
                 throw error;
               }
             }
