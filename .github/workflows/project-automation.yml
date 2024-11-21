@@ -20,86 +20,104 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
+            const PROJECT = {
+              ID: '', // 동적으로 할당될 프로젝트 ID
+              COLUMNS: {
+                BACKLOG: '',        // 📋 아직 스프린트에 할당되지 않은 전체 작업
+                SPRINT_BACKLOG: '', // 📅 현재 스프린트에서 진행할 작업들
+                IN_PROGRESS: '',    // 💻 현재 진행 중인 작업
+                IN_REVIEW: '',      // 👀 PR 생성되어 코드 리뷰 중인 작업
+                DONE: ''            // ✅ 완료되고 배포된 작업
+              }
+            };
+
             async function fetchProjectDetails() {
-                const query = `
-                  query($org: String!, $projectNumber: Int!) {
-                    organization(login: $org) {
-                      projectV2(number: $projectNumber) {
-                        id
-                        fields(first: 20) {
-                          nodes {
-                            ... on ProjectV2SingleSelectField {
+              const query = `
+                query($org: String!, $projectNumber: Int!) {
+                  organization(login: $org) {
+                    projectV2(number: $projectNumber) {
+                      id
+                      fields(first: 20) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
                               id
                               name
-                              options {
-                                id
-                                name
-                              }
                             }
                           }
                         }
                       }
                     }
                   }
-                `;
-              
-                try {
-                  const variables = {
-                    org: "YouTubeCreatorsHub",  // 조직 이름 (정확히 입력)
-                    projectNumber: 1           // 프로젝트 번호 (URL에서 확인)
-                  };
-              
-                  console.log('GraphQL Variables:', JSON.stringify(variables));
-                  const result = await github.graphql(query, variables);
-                  console.log('GraphQL Result:', JSON.stringify(result));
-              
-                  const project = result.organization?.projectV2;
-                  if (!project) throw new Error('Project not found. Check organization name or project number.');
-                  
-                  const statusField = project.fields.nodes.find(field => 
-                    field.name === 'Status' && field.options
-                  );
-                  if (!statusField) throw new Error('Status field not found. Check field name.');
-              
-                  const columns = {
-                    BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
-                    SPRINT_BACKLOG: statusField.options.find(opt => opt.name === 'Sprint Backlog')?.id,
-                    IN_PROGRESS: statusField.options.find(opt => opt.name === 'In Progress')?.id,
-                    IN_REVIEW: statusField.options.find(opt => opt.name === 'In Review')?.id,
-                    DONE: statusField.options.find(opt => opt.name === 'Done')?.id
-                  };
-              
-                  console.log('Columns:', JSON.stringify(columns));
-              
-                  return {
-                    projectId: project.id,
-                    statusFieldId: statusField.id,
-                    columns
-                  };
-                } catch (error) {
-                  console.error('Error in fetchProjectDetails:', error.message);
-                  throw error;
                 }
+              `;
+
+              const variables = {
+                org: "YouTubeCreatorsHub", // 조직 이름 (정확히 입력)
+                projectNumber: 1          // 프로젝트 번호 (URL에서 확인)
+              };
+
+              try {
+                console.log('Fetching project details...');
+                console.log('GraphQL Variables:', JSON.stringify(variables));
+
+                const result = await github.graphql(query, variables);
+                console.log('GraphQL Result:', JSON.stringify(result));
+
+                const project = result.organization?.projectV2;
+                if (!project) throw new Error('Project not found. Check organization name or project number.');
+
+                const statusField = project.fields.nodes.find(field => 
+                  field.name === 'Status' && field.options
+                );
+                if (!statusField) throw new Error('Status field not found. Check field name.');
+
+                const columns = {
+                  BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
+                  SPRINT_BACKLOG: statusField.options.find(opt => opt.name === 'Sprint Backlog')?.id,
+                  IN_PROGRESS: statusField.options.find(opt => opt.name === 'In Progress')?.id,
+                  IN_REVIEW: statusField.options.find(opt => opt.name === 'In Review')?.id,
+                  DONE: statusField.options.find(opt => opt.name === 'Done')?.id
+                };
+
+                console.log('Columns:', JSON.stringify(columns));
+
+                return {
+                  projectId: project.id,
+                  statusFieldId: statusField.id,
+                  columns
+                };
+              } catch (error) {
+                console.error('Error fetching project details:', error.message);
+                throw error;
               }
+            }
+
+            async function initializeProject() {
+              try {
+                const projectDetails = await fetchProjectDetails();
+                
+                PROJECT.ID = projectDetails.projectId; // 프로젝트 ID 동적 할당
+                Object.assign(PROJECT.COLUMNS, projectDetails.columns); // 컬럼 ID 동적 할당
+
+                console.log('Initialized PROJECT:', PROJECT);
+              } catch (error) {
+                console.error('Error initializing project:', error.message);
+              }
+            }
 
             async function moveIssueToColumn(contentId, columnId) {
-              if (!PROJECT) {
-                PROJECT = await fetchProjectDetails();
-                if (!PROJECT) throw new Error('Failed to fetch project details');
-              }
+              if (!PROJECT.ID) await initializeProject(); // 프로젝트 초기화
 
-              console.log('Moving item to column:', {
-                contentId,
-                columnId,
-                projectId: PROJECT.projectId,
-                statusFieldId: PROJECT.statusFieldId
-              });
+              console.log('Moving item to column:', { contentId, columnId });
 
               try {
                 const addMutation = `
                   mutation($projectId: ID!, $contentId: ID!) {
                     addProjectV2ItemById(input: {
-                      projectId: $projectId
+                      projectId: $projectId,
                       contentId: $contentId
                     }) {
                       item {
@@ -110,20 +128,20 @@ jobs:
                 `;
 
                 const addResult = await github.graphql(addMutation, {
-                  projectId: PROJECT.projectId,
+                  projectId: PROJECT.ID,
                   contentId
                 });
 
                 const itemId = addResult.addProjectV2ItemById?.item?.id;
-                if (!itemId) throw new Error('Failed to add item to project');
+                if (!itemId) throw new Error('Failed to add item to project.');
 
                 const updateMutation = `
                   mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
                     updateProjectV2ItemFieldValue(
                       input: {
-                        projectId: $projectId
-                        itemId: $itemId
-                        fieldId: $fieldId
+                        projectId: $projectId,
+                        itemId: $itemId,
+                        fieldId: $fieldId,
                         value: { singleSelectOptionId: $optionId }
                       }
                     ) {
@@ -135,52 +153,43 @@ jobs:
                 `;
 
                 await github.graphql(updateMutation, {
-                  projectId: PROJECT.projectId,
+                  projectId: PROJECT.ID,
                   itemId,
-                  fieldId: PROJECT.statusFieldId,
+                  fieldId: PROJECT.COLUMNS.STATUS_FIELD_ID,
                   optionId: columnId
                 });
 
                 console.log('Successfully moved item to column');
               } catch (error) {
-                console.error('Error in moveIssueToColumn:', error.message);
-                throw error;
+                console.error('Error moving item to column:', error.message);
               }
             }
 
-            let PROJECT;
-
             async function processEvent() {
               try {
-                PROJECT = await fetchProjectDetails();
-                
+                if (!PROJECT.ID) await initializeProject(); // 프로젝트 초기화
+
                 if (context.eventName === 'issues') {
-                  const issueId = context.payload.issue.node_id;
-                  const repo = context.payload.repository.name.toLowerCase();
+                  const issueNodeID = context.payload.issue.node_id;
                   
                   if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                    if (repo === 'fe') {
-                      await moveIssueToColumn(issueId, PROJECT.columns.BACKLOG);
-                    } else if (repo === 'be') {
-                      await moveIssueToColumn(issueId, PROJECT.columns.SPRINT_BACKLOG);
-                    }
+                    await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.BACKLOG);
                   } else if (context.payload.action === 'closed') {
-                    await moveIssueToColumn(issueId, PROJECT.columns.DONE);
+                    await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.DONE);
                   }
                 }
 
                 if (context.eventName === 'pull_request') {
-                  const prId = context.payload.pull_request.node_id;
-                  
+                  const prNodeID = context.payload.pull_request.node_id;
+
                   if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                    await moveIssueToColumn(prId, PROJECT.columns.IN_REVIEW);
+                    await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.IN_REVIEW);
                   } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                    await moveIssueToColumn(prId, PROJECT.columns.DONE);
+                    await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.DONE);
                   }
                 }
               } catch (error) {
-                console.error('Error in processEvent:', error.message);
-                throw error;
+                console.error('Error processing event:', error.message);
               }
             }
 
