@@ -19,29 +19,24 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            const STATUS_FIELD_ID = 'Status'; // Replace with your actual Status field ID
-            
-            // First fetch the project ID and field information
-            async function getProjectInfo() {
+            // 프로젝트 정보 조회를 위한 GraphQL 쿼리
+            async function getProjectV2() {
               const query = `
-                query($org: String!, $number: Int!) {
-                  organization(login: $org) {
-                    projectV2(number: $number) {
+                query($organization: String!, $projectNumber: Int!) {
+                  organization(login: $organization) {
+                    projectV2(number: $projectNumber) {
                       id
-                      fields(first: 20) {
-                        nodes {
-                          ... on ProjectV2SingleSelectField {
+                      field(name: "Status") {
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          options {
                             id
                             name
-                            options {
-                              id
-                              name
-                            }
                           }
                         }
                       }
@@ -50,21 +45,22 @@ jobs:
                 }
               `;
               
-              const result = await github.graphql(query, {
-                org: 'YouTubeCreatorsHub',
-                number: 1 // Your project number
-              });
+              const variables = {
+                organization: "YouTubeCreatorsHub",
+                projectNumber: 1
+              };
               
+              const result = await github.graphql(query, variables);
               return result.organization.projectV2;
             }
-            
-            // Add item to project
-            async function addItemToProject(projectId, contentId) {
+
+            // 아이템을 프로젝트에 추가
+            async function addItemToProject(projectId, itemId) {
               const mutation = `
-                mutation($projectId: ID!, $contentId: ID!) {
+                mutation($projectId: ID!, $itemId: ID!) {
                   addProjectV2ItemById(input: {
-                    projectId: $projectId,
-                    contentId: $contentId
+                    projectId: $projectId
+                    contentId: $itemId
                   }) {
                     item {
                       id
@@ -74,21 +70,21 @@ jobs:
               `;
               
               const result = await github.graphql(mutation, {
-                projectId,
-                contentId
+                projectId: projectId,
+                itemId: itemId
               });
               
               return result.addProjectV2ItemById.item.id;
             }
-            
-            // Update item's status
-            async function updateItemStatus(projectId, itemId, statusId) {
+
+            // 상태 업데이트
+            async function updateItemStatus(projectId, itemId, fieldId, statusId) {
               const mutation = `
-                mutation($projectId: ID!, $itemId: ID!, $statusId: String!) {
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $statusId: String!) {
                   updateProjectV2ItemFieldValue(input: {
-                    projectId: $projectId,
-                    itemId: $itemId,
-                    fieldId: "${STATUS_FIELD_ID}",
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
                     value: { singleSelectOptionId: $statusId }
                   }) {
                     projectV2Item {
@@ -101,51 +97,58 @@ jobs:
               await github.graphql(mutation, {
                 projectId,
                 itemId,
+                fieldId,
                 statusId
               });
             }
-            
+
             try {
-              // Get project information
-              const project = await getProjectInfo();
-              const statusField = project.fields.nodes.find(f => f.name === 'Status');
-              
-              // Map status names to IDs
-              const statusMap = {
-                BACKLOG: statusField.options.find(o => o.name === 'Backlog').id,
-                SPRINT_BACKLOG: statusField.options.find(o => o.name === 'Sprint Backlog').id,
-                IN_PROGRESS: statusField.options.find(o => o.name === 'In Progress').id,
-                IN_REVIEW: statusField.options.find(o => o.name === 'In Review').id,
-                DONE: statusField.options.find(o => o.name === 'Done').id
-              };
-              
+              // 프로젝트 정보 가져오기
+              const project = await getProjectV2();
+              if (!project || !project.id) {
+                throw new Error('Project not found');
+              }
+
+              const statusField = project.field;
+              if (!statusField || !statusField.options) {
+                throw new Error('Status field not found');
+              }
+
+              // 상태 매핑
+              const statusMap = {};
+              statusField.options.forEach(option => {
+                statusMap[option.name.toUpperCase().replace(/\s+/g, '_')] = option.id;
+              });
+
               let contentId, targetStatus;
-              
+
               if (context.eventName === 'issues') {
                 contentId = context.payload.issue.node_id;
-                const repo = context.payload.repository.name.toLowerCase();
-                
                 if (context.payload.action === 'opened') {
-                  targetStatus = repo === 'fe' ? statusMap.BACKLOG : statusMap.SPRINT_BACKLOG;
+                  targetStatus = context.payload.repository.name.toLowerCase() === 'fe' 
+                    ? statusMap.BACKLOG 
+                    : statusMap.SPRINT_BACKLOG;
                 } else if (context.payload.action === 'closed') {
                   targetStatus = statusMap.DONE;
                 }
               } else if (context.eventName === 'pull_request') {
                 contentId = context.payload.pull_request.node_id;
-                
                 if (context.payload.action === 'opened') {
                   targetStatus = statusMap.IN_REVIEW;
                 } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
                   targetStatus = statusMap.DONE;
                 }
               }
-              
+
               if (contentId && targetStatus) {
+                console.log('Adding item to project...');
                 const itemId = await addItemToProject(project.id, contentId);
-                await updateItemStatus(project.id, itemId, targetStatus);
+                console.log('Updating item status...');
+                await updateItemStatus(project.id, itemId, statusField.id, targetStatus);
+                console.log('Successfully updated project item');
               }
-              
+
             } catch (error) {
-              console.error('Error:', error.message);
+              console.error('Error occurred:', error);
               throw error;
             }
