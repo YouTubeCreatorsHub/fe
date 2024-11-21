@@ -73,8 +73,8 @@ jobs:
                 console.log('Columns:', JSON.stringify(columns));
 
                 return {
-                  projectId: project.ID,
-                  statusFieldId: statusField.ID,
+                  projectId: project.id,
+                  statusFieldId: statusField.id,
                   columns
                 };
               } catch (error) {
