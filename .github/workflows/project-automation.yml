@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secret.PROJECT_TOKEN }}
           script: |
             // 프로젝트 관련 상수 정의
             const PROJECT = {
@@ -152,7 +152,7 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secret.PROJECT_TOKEN }}
           script: |
             try {
               await github.rest.pulls.requestReviewers({
