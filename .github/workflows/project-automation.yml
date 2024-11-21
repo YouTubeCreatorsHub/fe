@@ -141,6 +141,13 @@ jobs:
             }
 
             async function processEvent() {
+              await initProjectDetails();
+  
+              if (!PROJECT || !PROJECT.projectId) {
+                console.error('Project details not initialized properly');
+                return;
+              }
+              
               if (context.eventName === 'issues') {
                 const issueId = context.payload.issue.node_id;
                 const repo = context.payload.repository.name.toLowerCase();
@@ -166,7 +173,8 @@ jobs:
                 }
               }
             }
-
+            
+            await initProjectDetails();
             await processEvent();
 
   add_reviewers:
