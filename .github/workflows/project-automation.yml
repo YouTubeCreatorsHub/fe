@@ -107,7 +107,7 @@ jobs:
 
             async function findProjectItem(contentId) {
               const query = `
-                query($projectId: ID!, $contentId: ID!) {
+                query($projectId: ID!) {
                   node(id: $projectId) {
                     ... on ProjectV2 {
                       items(first: 100) {
