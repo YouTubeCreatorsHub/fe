@@ -24,45 +24,9 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            const projectQuery = `
-              query {
-                organization(login: "YouTubeCreatorsHub") {
-                  projectV2(number: 1) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
-                            id
-                            name
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            `;
-            
-            const projectData = await github.graphql(projectQuery);
-            console.log('Project Data:', JSON.stringify(projectData, null, 2));
-            
-            // 모든 필드 정보 출력
-            const fields = projectData.organization.projectV2.fields.nodes;
-            console.log('All Fields:', fields);
-            
-            const statusField = fields.find(field => field.name === 'Status');
-            console.log('Status Field:', statusField);
-            
-            if (!statusField) {
-              throw new Error('Status field not found in project');
-            }
-            
             const PROJECT = {
-              ID: projectData.organization.projectV2.id,
-              STATUS_FIELD: statusField.id,
+              ID: '${{ secrets.PROJECT_ID }}',
+              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
               COLUMNS: {
                 BACKLOG: '17052d30',
                 SPRINT_BACKLOG: '2b4b3335',
@@ -72,73 +36,81 @@ jobs:
               }
             };
 
-            console.log('Project Configuration:', PROJECT);
-
             async function addToProject(contentId) {
-              const mutation = `
-                mutation($projectId: ID!, $contentId: ID!) {
-                  addProjectV2ItemById(input: {
-                    projectId: $projectId
-                    contentId: $contentId
-                  }) {
-                    item {
-                      id
-                    }
-                  }
-                }
-              `;
-              
-              const result = await github.graphql(mutation, {
-                projectId: PROJECT.ID,
-                contentId: contentId
-              });
-              return result.addProjectV2ItemById.item.id;
-            }
-
-            async function updateStatus(itemId, columnId) {
-              const mutation = `
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                  updateProjectV2ItemFieldValue(input: {
-                    projectId: $projectId
-                    itemId: $itemId
-                    fieldId: $fieldId
-                    value: {
-                      singleSelectOptionId: $optionId
-                    }
-                  }) {
-                    projectV2Item {
-                      id
-                    }
-                  }
-                }
-              `;
-              
-              await github.graphql(mutation, {
-                projectId: PROJECT.ID,
-                itemId: itemId,
-                fieldId: PROJECT.STATUS_FIELD,
-                optionId: columnId
-              });
-            }
-
-            async function moveIssueToColumn(contentId, columnId) {
               try {
-                console.log('Moving item:', { contentId, columnId });
-                const itemId = await addToProject(contentId);
-                console.log('Added to project, item ID:', itemId);
-                await updateStatus(itemId, columnId);
-                console.log('Status updated successfully');
+                const mutation = `
+                  mutation($input: AddProjectV2ItemByIdInput!) {
+                    addProjectV2ItemById(input: $input) {
+                      item {
+                        id
+                      }
+                    }
+                  }
+                `;
+                
+                const variables = {
+                  input: {
+                    projectId: PROJECT.ID,
+                    contentId: contentId
+                  }
+                };
+                
+                const result = await github.graphql(mutation, variables);
+                return result.addProjectV2ItemById.item.id;
               } catch (error) {
-                console.error('Error in moveIssueToColumn:', error);
+                console.error('Error adding item:', error);
                 throw error;
               }
             }
 
-            // 이슈 처리
+            async function updateStatus(itemId, columnId) {
+              try {
+                const mutation = `
+                  mutation($input: UpdateProjectV2ItemFieldValueInput!) {
+                    updateProjectV2ItemFieldValue(input: $input) {
+                      projectV2Item {
+                        id
+                      }
+                    }
+                  }
+                `;
+                
+                const variables = {
+                  input: {
+                    projectId: PROJECT.ID,
+                    itemId: itemId,
+                    fieldId: PROJECT.STATUS_FIELD,
+                    value: {
+                      singleSelectOptionId: columnId
+                    }
+                  }
+                };
+                
+                await github.graphql(mutation, variables);
+              } catch (error) {
+                console.error('Error updating status:', error);
+                throw error;
+              }
+            }
+
+            async function moveIssueToColumn(contentId, columnId) {
+              try {
+                console.log('Processing:', { contentId, columnId });
+                const itemId = await addToProject(contentId);
+                console.log('Item added with ID:', itemId);
+                await updateStatus(itemId, columnId);
+                console.log('Status updated successfully');
+              } catch (error) {
+                if (!error.message.includes('already exists')) {
+                  console.error('Error:', error);
+                  throw error;
+                }
+              }
+            }
+
             if (context.eventName === 'issues') {
               const issueId = context.payload.issue.node_id;
               const repo = context.payload.repository.name.toLowerCase();
-              console.log('Processing issue:', { issueId, repo, action: context.payload.action });
               
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                 if (repo === 'fe') {
@@ -151,10 +123,8 @@ jobs:
               }
             }
 
-            // PR 처리
             if (context.eventName === 'pull_request') {
               const prId = context.payload.pull_request.node_id;
-              console.log('Processing PR:', { prId, action: context.payload.action });
               
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
