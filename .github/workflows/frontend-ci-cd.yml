@@ -4,12 +4,12 @@ on:
   push:
     branches: [main, dev]
     paths:
-      - '**'  # fe 디렉토리 내 모든 변경사항 감지
+      - '**' # fe 디렉토리 내 모든 변경사항 감지
   pull_request:
     branches: [main, dev]
     types: [opened, reopened, closed, synchronize]
     paths:
-      - '**'  # fe 디렉토리 내 모든 변경사항 감지
+      - '**' # fe 디렉토리 내 모든 변경사항 감지
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: .  # 현재 디렉토리로 수정
+        working-directory: . # 현재 디렉토리로 수정
 
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: './package-lock.json'  # 경로 수정
+          cache-dependency-path: './package-lock.json' # 경로 수정
 
       - name: Install dependencies
         run: npm ci
