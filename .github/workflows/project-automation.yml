@@ -2,9 +2,9 @@ name: Project Board Automation
 
 on:
   issues:
-    types: [opened, reopened, closed, assigned, labeled]
+    types: [opened, reopened, closed, assigned, unassigned, labeled, unlabeld]
   pull_request:
-    types: [opened, reopened, closed, assigned, deleted]
+    types: [opened, reopened, closed, assigned, unassigned, deleted]
 
 permissions:
   contents: write
@@ -164,6 +164,12 @@ jobs:
                 case 'labeled':
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.IN_PROGRESS);
                   break;
+                case 'unassigned':
+                case 'unlabeled'
+                    await moveIssueToColumn(issueId,
+                      repo === 'fe' ? PROJECT.COLUMNS.BACKLOG : PROJECT.COLUMNS.SPRINT_BACKLOG
+                    );
+                  break;
                 case 'closed':
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
                   break;
@@ -183,9 +189,10 @@ jobs:
                   );
                   break;
                 case 'assigned':
-                  await moveIssueToColumn(prId, 
-                    hasAssignees ? PROJECT.COLUMNS.IN_PROGRESS : PROJECT.COLUMNS.IN_REVIEW
-                  );
+                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
+                  break;
+                case 'unassigned':
+                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
                   break;
                 case 'closed':
                   if (context.payload.pull_request.merged) {
