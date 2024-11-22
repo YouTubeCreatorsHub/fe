@@ -1,79 +1,161 @@
 name: Frontend CI/CD
 
-# 트리거 설정
 on:
   push:
     branches: [main, dev]
     paths:
-      - 'fe/**' # fe 디렉토리의 변경사항만 감지
+      - 'fe/**'
   pull_request:
     branches: [main, dev]
     paths:
-      - 'fe/**' # fe 디렉토리의 변경사항만 감지
+      - 'fe/**'
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  organization-projects: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Ubuntu 최신 버전에서 실행
+    runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./fe # 작업 디렉토리를 fe로 설정
+        working-directory: ./fe
 
     steps:
-      # 코드 체크아웃
       - uses: actions/checkout@v3
 
-      # Node.js 환경 설정
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # Node.js 18 버전 사용
-          cache: 'npm' # npm 캐시 활성화
-          cache-dependency-path: './fe/package-lock.json' # 캐시 경로 지정
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './fe/package-lock.json'
 
-      # 의존성 설치
       - name: Install dependencies
-        run: npm ci # clean install 실행
+        run: npm ci
 
-      # 환경 변수 설정
       - name: Create env file
         run: |
           echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" > .env
 
-      # 코드 품질 검사
       - name: Lint
         run: |
-          npm run lint        # ESLint 실행
-          npm run prettier    # Prettier 실행
+          npm run lint
+          npm run prettier
 
-      # TypeScript 타입 체크
       - name: Type check
         run: tsc --noEmit
 
-      # 테스트 실행
       - name: Run tests
         run: npm run test
 
-      # 프로덕션 빌드
       - name: Build
         run: npm run build
 
-      # AWS 인증 설정 (main 브랜치에서만)
       - name: Configure AWS credentials
-        if: github.ref == 'refs/heads/main' # main 브랜치일 때만 실행
+        if: github.ref == 'refs/heads/main'
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2 # 서울 리전
+          aws-region: ap-northeast-2
 
-      # S3 배포 (main 브랜치에서만)
       - name: Deploy to S3
-        if: github.ref == 'refs/heads/main' # main 브랜치일 때만 실행
+        if: github.ref == 'refs/heads/main'
         run: |
-          aws s3 sync ./out s3://fe-youtube-deploy --delete    # S3에 빌드 결과물 업로드
+          aws s3 sync ./out s3://fe-youtube-deploy --delete
 
-      # CloudFront 캐시 무효화 (선택사항)
       - name: Invalidate CloudFront
-        if: github.ref == 'refs/heads/main' # main 브랜치일 때만 실행
+        if: github.ref == 'refs/heads/main'
         run: |
           aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AUTO_ACTIONS_TOKEN }}
+          script: |
+            const PROJECT = {
+              ID: '${{ secrets.PROJECT_ID }}',
+              STATUS_FIELD: '${{ secrets.STATUS_FIELD_ID }}',
+              COLUMNS: {
+                BACKLOG: '17052d30',
+                SPRINT_BACKLOG: '2b4b3335',
+                IN_PROGRESS: 'dc54b4f8',
+                IN_REVIEW: '3fdc4773',
+                DONE: '98236657'
+              }
+            };
+
+            async function addToProject(contentId) {
+              const mutation = `
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              `;
+              
+              const result = await github.graphql(mutation, {
+                projectId: PROJECT.ID,
+                contentId: contentId
+              });
+              
+              return result.addProjectV2ItemById.item.id;
+            }
+
+            async function moveIssueToColumn(contentId, columnId) {
+              try {
+                const itemId = await addToProject(contentId);
+                console.log('Item added with ID:', itemId);
+                
+                const mutation = `
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
+                    updateProjectV2ItemFieldValue(
+                      input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { 
+                          singleSelectOptionId: $columnId
+                        }
+                      }
+                    ) {
+                      projectV2Item {
+                        id
+                      }
+                    }
+                  }
+                `;
+                
+                await github.graphql(mutation, {
+                  projectId: PROJECT.ID,
+                  itemId: itemId,
+                  fieldId: PROJECT.STATUS_FIELD,
+                  columnId: columnId
+                });
+                
+                console.log('Status updated successfully');
+              } catch (error) {
+                if (!error.message.includes('already exists')) {
+                  console.error('Error:', error);
+                  throw error;
+                }
+              }
+            }
+
+            if (context.eventName === 'pull_request') {
+              const prId = context.payload.pull_request.node_id;
+              
+              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
+              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+              }
+            }
