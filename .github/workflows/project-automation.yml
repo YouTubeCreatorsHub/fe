@@ -24,18 +24,20 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            // 먼저 프로젝트 ID를 조회
             const projectQuery = `
               query($org: String!, $number: Int!) {
                 organization(login: $org) {
                   projectV2(number: $number) {
                     id
-                    field(name: "Status") {
-                      ... on ProjectV2SingleSelectField {
-                        id
-                        options {
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2SingleSelectField {
                           id
                           name
+                          options {
+                            id
+                            name
+                          }
                         }
                       }
                     }
@@ -45,10 +47,9 @@ jobs:
             `;
 
             try {
-              // 프로젝트 정보 가져오기
               const projectResult = await github.graphql(projectQuery, {
                 org: "YouTubeCreatorsHub",
-                number: 1  // 프로젝트 번호
+                number: 1
               });
 
               if (!projectResult.organization?.projectV2) {
@@ -56,9 +57,14 @@ jobs:
               }
 
               const projectId = projectResult.organization.projectV2.id;
-              const statusField = projectResult.organization.projectV2.field;
+              const statusField = projectResult.organization.projectV2.fields.nodes.find(
+                field => field.name === "Status"
+              );
 
-              // 아이템 추가
+              if (!statusField) {
+                throw new Error('Status field not found');
+              }
+
               const addMutation = `
                 mutation($projectId: ID!, $contentId: ID!) {
                   addProjectV2ItemById(input: {
@@ -75,51 +81,58 @@ jobs:
               let contentId;
               let statusOptionId;
 
-              // 이벤트 타입에 따라 처리
               if (context.eventName === 'issues') {
                 contentId = context.payload.issue.node_id;
                 statusOptionId = context.payload.action === 'closed' 
-                  ? statusField.options.find(o => o.name === 'Done').id
-                  : statusField.options.find(o => o.name === 'Backlog').id;
+                  ? statusField.options.find(o => o.name === 'Done')?.id
+                  : statusField.options.find(o => o.name === 'Backlog')?.id;
               } else if (context.eventName === 'pull_request') {
                 contentId = context.payload.pull_request.node_id;
                 statusOptionId = context.payload.action === 'closed' 
-                  ? statusField.options.find(o => o.name === 'Done').id
-                  : statusField.options.find(o => o.name === 'In Review').id;
+                  ? statusField.options.find(o => o.name === 'Done')?.id
+                  : statusField.options.find(o => o.name === 'In Review')?.id;
               }
 
-              // 프로젝트에 아이템 추가
-              const addResult = await github.graphql(addMutation, {
-                projectId,
-                contentId
-              });
+              if (!statusOptionId) {
+                throw new Error('Status option not found');
+              }
 
-              // 상태 업데이트
-              if (addResult.addProjectV2ItemById?.item?.id) {
-                const updateMutation = `
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                    updateProjectV2ItemFieldValue(input: {
-                      projectId: $projectId
-                      itemId: $itemId
-                      fieldId: $fieldId
-                      value: { singleSelectOptionId: $optionId }
-                    }) {
-                      projectV2Item {
-                        id
+              try {
+                const addResult = await github.graphql(addMutation, {
+                  projectId,
+                  contentId
+                });
+
+                if (addResult.addProjectV2ItemById?.item?.id) {
+                  const updateMutation = `
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { singleSelectOptionId: $optionId }
+                      }) {
+                        projectV2Item {
+                          id
+                        }
                       }
                     }
-                  }
-                `;
+                  `;
 
-                await github.graphql(updateMutation, {
-                  projectId,
-                  itemId: addResult.addProjectV2ItemById.item.id,
-                  fieldId: statusField.id,
-                  optionId: statusOptionId
-                });
+                  await github.graphql(updateMutation, {
+                    projectId,
+                    itemId: addResult.addProjectV2ItemById.item.id,
+                    fieldId: statusField.id,
+                    optionId: statusOptionId
+                  });
+                }
+              } catch (error) {
+                if (!error.message.includes('Project item already exists')) {
+                  throw error;
+                }
               }
 
             } catch (error) {
               console.error('Error:', error.message);
-              throw error;
+              core.setFailed(error.message);
             }
