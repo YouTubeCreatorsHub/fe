@@ -6,131 +6,158 @@ on:
   pull_request:
     types: [opened, reopened, closed]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  repository-projects: write
+
 jobs:
   project_automation:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-      organization-projects: write
-      repository-projects: write
-      contents: read
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            const PROJECT_NUMBER = 1; // 프로젝트 번호
-            const ORG = 'YouTubeCreatorsHub'; // 조직 이름
-            
-            // 프로젝트 ID와 필드 ID를 가져오는 쿼리
-            const projectQuery = `
-              query($org: String!, $number: Int!) {
-                organization(login: $org) {
-                  projectV2(number: $number) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
+            const PROJECT = {
+              ID: 'PVT_kwDOC0FCP84AsibV',
+              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
+              COLUMNS: {
+                BACKLOG: '17052d30',
+                SPRINT_BACKLOG: '2b4b3335',
+                IN_PROGRESS: 'dc54b4f8',
+                IN_REVIEW: '3fdc4773',
+                DONE: '98236657'
+              }
+            };
+
+            async function moveIssueToColumn(contentId, columnId) {
+              if (!contentId) {
+                console.error('Error: contentId is undefined');
+                return;
+              }
+
+              try {
+                // 먼저 아이템이 프로젝트에 있는지 확인
+                const findItemQuery = `
+                  query($projectId: ID!, $contentId: ID!) {
+                    node(id: $projectId) {
+                      ... on ProjectV2 {
+                        items(first: 1, filter: {contentId: $contentId}) {
+                          nodes {
                             id
-                            name
                           }
                         }
                       }
                     }
                   }
-                }
-              }
-            `;
+                `;
 
-            // 상태 값 매핑
-            const COLUMNS = {
-              BACKLOG: 'Backlog',
-              SPRINT_BACKLOG: 'Sprint Backlog',
-              IN_PROGRESS: 'In Progress',
-              IN_REVIEW: 'In Review',
-              DONE: 'Done'
-            };
+                const findResult = await github.graphql(findItemQuery, {
+                  projectId: PROJECT.ID,
+                  contentId: contentId
+                });
 
-            async function moveIssueToColumn(projectId, itemId, fieldId, statusName, statusOptions) {
-              const statusOption = statusOptions.find(option => option.name === statusName);
-              if (!statusOption) {
-                throw new Error(`Status option ${statusName} not found`);
-              }
-
-              const mutation = `
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                  updateProjectV2ItemFieldValue(
-                    input: {
-                      projectId: $projectId
-                      itemId: $itemId
-                      fieldId: $fieldId
-                      value: { 
-                        singleSelectOptionId: $optionId
+                let itemId;
+                
+                // 아이템이 없으면 추가
+                if (!findResult.node.items.nodes.length) {
+                  const addMutation = `
+                    mutation($projectId: ID!, $contentId: ID!) {
+                      addProjectV2ItemById(input: {
+                        projectId: $projectId
+                        contentId: $contentId
+                      }) {
+                        item {
+                          id
+                        }
                       }
                     }
-                  ) {
-                    projectV2Item {
-                      id
+                  `;
+
+                  const addResult = await github.graphql(addMutation, {
+                    projectId: PROJECT.ID,
+                    contentId: contentId
+                  });
+                  
+                  itemId = addResult.addProjectV2ItemById.item.id;
+                } else {
+                  itemId = findResult.node.items.nodes[0].id;
+                }
+
+                // 상태 업데이트
+                const updateMutation = `
+                  mutation($projectId: ID!, $itemId: ID!, $statusFieldId: ID!, $columnId: String!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $statusFieldId
+                      value: { singleSelectOptionId: $columnId }
+                    }) {
+                      projectV2Item {
+                        id
+                      }
                     }
                   }
-                }
-              `;
+                `;
 
-              return github.graphql(mutation, {
-                projectId: projectId,
-                itemId: itemId,
-                fieldId: fieldId,
-                optionId: statusOption.id
-              });
+                await github.graphql(updateMutation, {
+                  projectId: PROJECT.ID,
+                  itemId: itemId,
+                  statusFieldId: PROJECT.STATUS_FIELD,
+                  columnId: columnId
+                });
+
+              } catch (error) {
+                console.error('Error:', error);
+                throw error;
+              }
             }
 
+            // 이벤트 처리
+            if (context.eventName === 'issues') {
+              const issueId = context.payload.issue.node_id;
+              const repo = context.payload.repository.name.toLowerCase();
+
+              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                if (repo === 'fe') {
+                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
+                } else if (repo === 'be') {
+                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
+                }
+              } else if (context.payload.action === 'closed') {
+                await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
+              }
+            }
+
+            if (context.eventName === 'pull_request') {
+              const prId = context.payload.pull_request.node_id;
+              
+              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
+              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+              }
+            }
+
+  add_reviewers:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AUTO_ACTIONS }}
+          script: |
             try {
-              // 프로젝트 정보 가져오기
-              const projectInfo = await github.graphql(projectQuery, {
-                org: ORG,
-                number: PROJECT_NUMBER
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                reviewers: ['choco5958', 'lim3873', 'tlswltjq']
               });
-
-              const projectId = projectInfo.organization.projectV2.id;
-              const statusField = projectInfo.organization.projectV2.fields.nodes.find(
-                field => field.name === "Status"
-              );
-
-              if (!statusField) {
-                throw new Error('Status field not found');
-              }
-
-              // 이슈 자동화
-              if (context.eventName === 'issues') {
-                const repo = context.payload.repository.name.toLowerCase();
-                const itemId = context.payload.issue.node_id;
-
-                if (context.payload.action === 'opened') {
-                  const targetStatus = repo === 'fe' ? COLUMNS.BACKLOG : COLUMNS.SPRINT_BACKLOG;
-                  await moveIssueToColumn(projectId, itemId, statusField.id, targetStatus, statusField.options);
-                }
-                else if (context.payload.action === 'closed') {
-                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.DONE, statusField.options);
-                }
-              }
-
-              // PR 자동화
-              if (context.eventName === 'pull_request') {
-                const itemId = context.payload.pull_request.node_id;
-
-                if (context.payload.action === 'opened') {
-                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.IN_REVIEW, statusField.options);
-                }
-                else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.DONE, statusField.options);
-                }
-              }
-
             } catch (error) {
-              console.error('Error:', error.message);
-              core.setFailed(error.message);
+              console.error('Error adding reviewers:', error);
             }
