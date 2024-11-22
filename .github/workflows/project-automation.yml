@@ -24,35 +24,9 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            const projectQuery = `
-                query {
-                  organization(login: "YouTubeCreatorsHub") {
-                    projectV2(number: 1) {
-                      id
-                      fields(first: 20) {
-                        nodes {
-                          ... on ProjectV2SingleSelectField {
-                            id
-                            name
-                            options {
-                              id
-                              name
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              `;
-  
-              const projectData = await github.graphql(projectQuery);
-              const statusField = projectData.organization.projectV2.fields.nodes.find(
-                field => field.name === 'Status'
-              );
             const PROJECT = {
-              ID: projectData.organization.projectV2.id,
-              STATUS_FIELD: statusField.id,
+              ID: '${{ secrets.PROJECT_ID }}',
+              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
               COLUMNS: {
                 BACKLOG: '17052d30',
                 SPRINT_BACKLOG: '2b4b3335',
@@ -77,7 +51,7 @@ jobs:
                 input: {
                   projectId: PROJECT.ID,
                   itemId: itemId,
-                  fieldId: statusField.id,
+                  fieldId: PROJECT.STATUS_FIELD,  // "Status" 대신 실제 필드 ID 사용
                   value: {
                     singleSelectOptionId: columnId
                   }
