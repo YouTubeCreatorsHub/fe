@@ -16,60 +16,39 @@ jobs:
       repository-projects: write
       contents: read
     steps:
+      - uses: monry/actions-get-project-id@v2
+        id: get-project-id
+        with:
+          github-token: ${{ secrets.AUTO_ACTIONS }}
+          project-owner: 'YouTubeCreatorsHub'
+          project-number: 1
+
       - uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
-            const PROJECT_NUMBER = 1; // 프로젝트 번호
-            const ORG = 'YouTubeCreatorsHub'; // 조직 이름
-            
-            // 프로젝트 ID와 필드 ID를 가져오는 쿼리
-            const projectQuery = `
-              query($org: String!, $number: Int!) {
-                organization(login: $org) {
-                  projectV2(number: $number) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
-                            id
-                            name
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
+            const PROJECT = {
+              ID: '${{ steps.get-project-id.outputs.project-id }}',
+              COLUMNS: {
+                BACKLOG: '17052d30',        // 📋 아직 스프린트에 할당되지 않은 전체 작업
+                SPRINT_BACKLOG: '2b4b3335',  // 📅 현재 스프린트에서 진행할 작업들
+                IN_PROGRESS: 'dc54b4f8',     // 💻 현재 진행 중인 작업
+                IN_REVIEW: '3fdc4773',       // 👀 PR 생성되어 코드 리뷰 중인 작업
+                DONE: '98236657'            // ✅ 완료되고 배포된 작업
               }
-            `;
-
-            // 상태 값 매핑
-            const COLUMNS = {
-              BACKLOG: 'Backlog',
-              SPRINT_BACKLOG: 'Sprint Backlog',
-              IN_PROGRESS: 'In Progress',
-              IN_REVIEW: 'In Review',
-              DONE: 'Done'
             };
-
-            async function moveIssueToColumn(projectId, itemId, fieldId, statusName, statusOptions) {
-              const statusOption = statusOptions.find(option => option.name === statusName);
-              if (!statusOption) {
-                throw new Error(`Status option ${statusName} not found`);
-              }
-
+            
+            // 이슈나 PR을 특정 컬럼으로 이동시키는 함수
+            async function moveIssueToColumn(itemId, columnId) {
               const mutation = `
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                mutation {
                   updateProjectV2ItemFieldValue(
                     input: {
-                      projectId: $projectId
-                      itemId: $itemId
-                      fieldId: $fieldId
+                      projectId: "${PROJECT.ID}"
+                      itemId: "${itemId}"
+                      fieldId: "Status"
                       value: { 
-                        singleSelectOptionId: $optionId
+                        singleSelectOptionId: "${columnId}"
                       }
                     }
                   ) {
@@ -79,58 +58,63 @@ jobs:
                   }
                 }
               `;
-
-              return github.graphql(mutation, {
-                projectId: projectId,
-                itemId: itemId,
-                fieldId: fieldId,
-                optionId: statusOption.id
-              });
+              
+              try {
+                await github.graphql(mutation);
+              } catch (error) {
+                console.error('Error moving item:', error);
+                // 아이템이 아직 프로젝트에 없는 경우, 먼저 추가
+                if (error.message.includes('Could not resolve to a ProjectV2Item')) {
+                  const addMutation = `
+                    mutation {
+                      addProjectV2ItemById(input: {
+                        projectId: "${PROJECT.ID}"
+                        contentId: "${itemId}"
+                      }) {
+                        item {
+                          id
+                        }
+                      }
+                    }
+                  `;
+                  await github.graphql(addMutation);
+                  // 다시 상태 업데이트 시도
+                  await github.graphql(mutation);
+                } else {
+                  throw error;
+                }
+              }
             }
-
-            try {
-              // 프로젝트 정보 가져오기
-              const projectInfo = await github.graphql(projectQuery, {
-                org: ORG,
-                number: PROJECT_NUMBER
-              });
-
-              const projectId = projectInfo.organization.projectV2.id;
-              const statusField = projectInfo.organization.projectV2.fields.nodes.find(
-                field => field.name === "Status"
-              );
-
-              if (!statusField) {
-                throw new Error('Status field not found');
-              }
-
-              // 이슈 자동화
-              if (context.eventName === 'issues') {
-                const repo = context.payload.repository.name.toLowerCase();
-                const itemId = context.payload.issue.node_id;
-
-                if (context.payload.action === 'opened') {
-                  const targetStatus = repo === 'fe' ? COLUMNS.BACKLOG : COLUMNS.SPRINT_BACKLOG;
-                  await moveIssueToColumn(projectId, itemId, statusField.id, targetStatus, statusField.options);
+            
+            // 이슈 자동화
+            if (context.eventName === 'issues') {
+              const repo = context.payload.repository.name.toLowerCase();
+              
+              if (context.payload.action === 'opened') {
+                // FE 레포지토리의 이슈는 Backlog로 이동
+                if (repo === 'fe') {
+                  await moveIssueToColumn(context.payload.issue.node_id, PROJECT.COLUMNS.BACKLOG);
                 }
-                else if (context.payload.action === 'closed') {
-                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.DONE, statusField.options);
+                // BE 레포지토리의 이슈는 Sprint Backlog로 이동
+                else if (repo === 'be') {
+                  await moveIssueToColumn(context.payload.issue.node_id, PROJECT.COLUMNS.SPRINT_BACKLOG);
                 }
               }
-
-              // PR 자동화
-              if (context.eventName === 'pull_request') {
-                const itemId = context.payload.pull_request.node_id;
-
-                if (context.payload.action === 'opened') {
-                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.IN_REVIEW, statusField.options);
-                }
-                else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.DONE, statusField.options);
-                }
+              
+              // 이슈가 닫히면 Done으로 이동
+              else if (context.payload.action === 'closed') {
+                await moveIssueToColumn(context.payload.issue.node_id, PROJECT.COLUMNS.DONE);
               }
-
-            } catch (error) {
-              console.error('Error:', error.message);
-              core.setFailed(error.message);
+            }
+            
+            // PR 자동화
+            if (context.eventName === 'pull_request') {
+              if (context.payload.action === 'opened') {
+                // PR이 열리면 In Review로 이동
+                await moveIssueToColumn(context.payload.pull_request.node_id, PROJECT.COLUMNS.IN_REVIEW);
+              }
+              else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                // PR이 머지되면 Done으로 이동
+                await moveIssueToColumn(context.payload.pull_request.node_id, PROJECT.COLUMNS.DONE);
+              }
             }
