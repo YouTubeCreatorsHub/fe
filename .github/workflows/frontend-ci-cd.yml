@@ -170,6 +170,60 @@ jobs:
               }
             }
 
+            async function findProjectItem(contentId) {
+              const query = `
+                query($projectId: ID!) {
+                  node(id: $projectId) {
+                    ... on ProjectV2 {
+                      items(first: 100) {
+                        nodes {
+                          id
+                          content {
+                            ... on PullRequest {
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+
+              try {
+                const result = await github.graphql(query, {
+                  projectId: PROJECT.ID
+                });
+
+                const projectItem = result.node.items.nodes.find(
+                  item => item.content?.id === contentId
+                );
+
+                console.log('Found project item:', projectItem);
+                return projectItem?.id;
+              } catch (error) {
+                console.error('Error finding project item:', error);
+                throw error;
+              }
+            }
+
+            async function deleteFromProject(contentId) {
+              try {
+                const projectItemId = await findProjectItem(contentId);
+                if (projectItemId) {
+                  await github.graphql(mutations.delete, {
+                    projectId: PROJECT.ID,
+                    itemId: projectItemId
+                  });
+                  console.log('Item successfully removed from project');
+                } else {
+                  console.log('Item not found in project');
+                }
+              } catch (error) {
+                console.error('Error removing item from project:', error);
+              }
+            }
+
             // PR 처리
             if (context.eventName === 'pull_request') {
               const prId = context.payload.pull_request.node_id;
