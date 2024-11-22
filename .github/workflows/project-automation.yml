@@ -2,9 +2,9 @@ name: Project Board Automation
 
 on:
   issues:
-    types: [opened, reopened, closed]
+    types: [opened, reopened, closed, assigned, labeled]
   pull_request:
-    types: [opened, reopened, closed, assigned]
+    types: [opened, reopened, closed, assigned, deleted]
 
 permissions:
   contents: write
@@ -108,6 +108,8 @@ jobs:
                 } else if (repo === 'be') {
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
                 }
+              } else if (context.payload.action === 'assigned' || context.payload.action === 'labeled') {
+                await moveIssueToColumn(issueId, PROJECT.COLUMNS.IN_PROGRESS);
               } else if (context.payload.action === 'closed') {
                 await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
               }
@@ -120,7 +122,30 @@ jobs:
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
               } else if (context.payload.action === 'assigned') {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
-              }else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+              } else if (context.payload.action === 'deleted') {
+                // PR이 삭제되면 프로젝트에서도 제거
+                try {
+                  const deleteItemMutation = `
+                    mutation($projectId: ID!, $itemId: ID!) {
+                      deleteProjectV2Item(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                      }) {
+                        deletedItemId
+                      }
+                    }
+                  `;
+                  
+                  await github.graphql(deleteItemMutation, {
+                    projectId: PROJECT.ID,
+                    itemId: prId
+                  });
+                  
+                  console.log('PR successfully removed from project');
+                } catch (error) {
+                  console.error('Error removing PR from project:', error);
+                }
               }
             }
