@@ -183,7 +183,9 @@ jobs:
                   );
                   break;
                 case 'assigned':
-                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
+                  await moveIssueToColumn(prId, 
+                    hasAssignees ? PROJECT.COLUMNS.IN_PROGRESS : PROJECT.COLUMNS.IN_REVIEW
+                  );
                   break;
                 case 'closed':
                   if (context.payload.pull_request.merged) {
