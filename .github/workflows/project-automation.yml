@@ -58,53 +58,70 @@ jobs:
                 const result = await github.graphql(mutation, variables);
                 return result.addProjectV2ItemById.item.id;
               } catch (error) {
-                console.error('Error adding item:', error);
+                if (error.message.includes('already exists')) {
+                  // 이미 존재하는 아이템 ID 조회
+                  const query = `
+                    query($projectId: ID!, $contentId: ID!) {
+                      node(id: $projectId) {
+                        ... on ProjectV2 {
+                          items(first: 1, filter: {contentId: $contentId}) {
+                            nodes {
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  `;
+                  
+                  const result = await github.graphql(query, {
+                    projectId: PROJECT.ID,
+                    contentId: contentId
+                  });
+                  
+                  return result.node.items.nodes[0].id;
+                }
                 throw error;
               }
             }
 
             async function updateStatus(itemId, columnId) {
-              try {
-                const mutation = `
-                  mutation($input: UpdateProjectV2ItemFieldValueInput!) {
-                    updateProjectV2ItemFieldValue(input: $input) {
-                      projectV2Item {
-                        id
-                      }
+              const mutation = `
+                mutation($input: UpdateProjectV2ItemFieldValueInput!) {
+                  updateProjectV2ItemFieldValue(input: $input) {
+                    projectV2Item {
+                      id
                     }
                   }
-                `;
-                
-                const variables = {
-                  input: {
-                    projectId: PROJECT.ID,
-                    itemId: itemId,
-                    fieldId: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
-                    value: {
-                      singleSelectOptionId: columnId
-                    }
+                }
+              `;
+              
+              const variables = {
+                input: {
+                  projectId: PROJECT.ID,
+                  itemId: itemId,
+                  fieldId: PROJECT.STATUS_FIELD,
+                  value: {
+                    singleSelectOptionId: columnId
                   }
-                };
-                
-                await github.graphql(mutation, variables);
-              } catch (error) {
-                console.error('Error updating status:', error);
-                throw error;
-              }
+                }
+              };
+              
+              await github.graphql(mutation, variables);
             }
 
             async function moveIssueToColumn(contentId, columnId) {
               try {
                 console.log('Processing:', { contentId, columnId });
+                // 먼저 프로젝트에 아이템 추가
                 const itemId = await addToProject(contentId);
                 console.log('Item added with ID:', itemId);
+                // 상태 업데이트
                 await updateStatus(itemId, columnId);
                 console.log('Status updated successfully');
               } catch (error) {
-                if (!error.message.includes('already exists')) {
-                  console.error('Error:', error);
-                  throw error;
-                }
+                console.error('Error:', error.message);
+                throw error;
               }
             }
 
