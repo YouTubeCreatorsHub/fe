@@ -28,11 +28,11 @@ jobs:
               ID: '${{ secrets.PROJECT_ID }}',
               STATUS_FIELD: '${{ secrets.STATUS_FIELD_ID }}',
               COLUMNS: {
-                BACKLOG: '17052d30',
-                SPRINT_BACKLOG: '2b4b3335',
-                IN_PROGRESS: 'dc54b4f8',
-                IN_REVIEW: '3fdc4773',
-                DONE: '98236657'
+                BACKLOG: '${{ secrets.BACKLOG_ID }}',
+                SPRINT_BACKLOG: '${{ secrets.SPRINT_BACKLOG_ID }}',
+                IN_PROGRESS: '${{ secrets.IN_PROGRESS_ID }}',
+                IN_REVIEW: '${{ secrets.IN_REVIEW_ID }}',
+                DONE: '${{ secrets.DONE_ID }}'
               }
             };
 
