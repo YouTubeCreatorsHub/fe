@@ -10,8 +10,7 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
-  repository-projects: write
-  organization-projects: write
+  projects: write
 
 jobs:
   project_automation:
