@@ -11,7 +11,7 @@ permissions:
   issues: write
   pull-requests: write
   repository-projects: write
-  organization-projects: write  # organization-projects 대신 이것을 사용
+  organization-projects: write # organization-projects 대신 이것을 사용
 
 jobs:
   project_automation:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          
+
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
