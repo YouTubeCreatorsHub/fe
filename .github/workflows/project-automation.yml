@@ -165,7 +165,7 @@ jobs:
                   await moveIssueToColumn(issueId, PROJECT.COLUMNS.IN_PROGRESS);
                   break;
                 case 'unassigned':
-                case 'unlabeled'
+                case 'unlabeled':
                     await moveIssueToColumn(issueId,
                       repo === 'fe' ? PROJECT.COLUMNS.BACKLOG : PROJECT.COLUMNS.SPRINT_BACKLOG
                     );
