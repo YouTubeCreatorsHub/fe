@@ -6,29 +6,27 @@ on:
   pull_request:
     types: [opened, reopened, closed]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  repository-projects: write
+
 jobs:
   project_automation:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-      organization-projects: write
-      repository-projects: write
-      contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
+          node-version: '20.x'
+          
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.AUTO_ACTIONS }}
+          github-token: ${{ secrets.AUTO_ACTIONS_TOKEN }}
           script: |
             const PROJECT = {
-              ID: '',
+              ID: '${{ secrets.PROJECT_ID }}',
+              STATUS_FIELD: '${{ secrets.STATUS_FIELD_ID }}',
               COLUMNS: {
                 BACKLOG: '17052d30',
                 SPRINT_BACKLOG: '2b4b3335',
@@ -38,141 +36,91 @@ jobs:
               }
             };
 
-            // Fetch project details
-            async function fetchProjectDetails() {
-              const query = `
-                query($org: String!, $projectNumber: Int!) {
-                  organization(login: $org) {
-                    projectV2(number: $projectNumber) {
+            async function addToProject(contentId) {
+              const mutation = `
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId
+                    contentId: $contentId
+                  }) {
+                    item {
                       id
-                      fields(first: 20) {
-                        nodes {
-                          ... on ProjectV2SingleSelectField {
-                            id
-                            name
-                            options {
-                              id
-                              name
-                            }
-                          }
-                        }
-                      }
                     }
                   }
                 }
               `;
-              const variables = { org: "YouTubeCreatorsHub", projectNumber: 1 };
-
-              try {
-                console.log('Fetching project details...');
-                const result = await github.graphql(query, variables);
-                console.log('GraphQL Result:', JSON.stringify(result)); // Log the result
-
-                const project = result.organization?.projectV2;
-                if (!project) throw new Error('Project not found.');
-
-                const statusField = project.fields.nodes.find(field => 
-                  field.name === 'Status' && field.options
-                );
-                if (!statusField) throw new Error('Status field not found.');
-
-                const columns = {
-                  BACKLOG: statusField.options.find(opt => opt.name === 'Backlog')?.id,
-                  SPRINT_BACKLOG: statusField.options.find(opt => opt.name === 'Sprint Backlog')?.id,
-                  IN_PROGRESS: statusField.options.find(opt => opt.name === 'In Progress')?.id,
-                  IN_REVIEW: statusField.options.find(opt => opt.name === 'In Review')?.id,
-                  DONE: statusField.options.find(opt => opt.name === 'Done')?.id
-                };
-
-                console.log('Fetched Project Details:', { projectId: project.id, columns });
-                return { projectId: project.id, columns };
-              } catch (error) {
-                console.error('Error fetching project details:', error.message);
-                throw error;
-              }
-            }
-
-            // Initialize project data
-            async function initializeProject() {
-              if (!PROJECT.ID) {
-                try {
-                  const projectDetails = await fetchProjectDetails();
-                  if (!projectDetails) {
-                    console.error('Project details not fetched.');
-                    return;
-                  }
-
-                  PROJECT.ID = projectDetails.projectId;
-                  PROJECT.COLUMNS = projectDetails.columns;
-                  console.log('Initialized PROJECT:', PROJECT);
-                } catch (error) {
-                  console.error('Error initializing project:', error.message);
-                }
-              }
+             
+              const result = await github.graphql(mutation, {
+                projectId: PROJECT.ID,
+                contentId: contentId
+              });
+              
+              return result.addProjectV2ItemById.item.id;
             }
 
             // Move issue to appropriate column
             async function moveIssueToColumn(contentId, columnId) {
-              if (!PROJECT.ID || !columnId) {
-                console.error('PROJECT ID or Column ID is missing');
-                return; // Skip if missing IDs
-              }
-
               try {
-                const addMutation = `
-                  mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-                      item { id }
+                const itemId = await addToProject(contentId);
+                console.log('Item added with ID:', itemId);
+                
+                const mutation = `
+                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
+                    updateProjectV2ItemFieldValue(
+                      input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { 
+                          singleSelectOptionId: $columnId
+                        }
+                      }
+                    ) {
+                      projectV2Item {
+                        id
+                      }
                     }
                   }
                 `;
-                const addResult = await github.graphql(addMutation, { projectId: PROJECT.ID, contentId });
-                const itemId = addResult.addProjectV2ItemById?.item?.id;
-
-                if (!itemId) throw new Error('Failed to add item to project.');
-
-                const updateMutation = `
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                    updateProjectV2ItemFieldValue(
-                      input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { singleSelectOptionId: $optionId } }
-                    ) { projectV2Item { id } }
-                  }
-                `;
-                await github.graphql(updateMutation, { 
+                
+                await github.graphql(mutation, {
                   projectId: PROJECT.ID,
-                  itemId,
-                  fieldId: PROJECT.COLUMNS.STATUS_FIELD_ID,
-                  optionId: columnId 
+                  itemId: itemId,
+                  fieldId: PROJECT.STATUS_FIELD,
+                  columnId: columnId
                 });
+                
+                console.log('Status updated successfully');
               } catch (error) {
-                console.error('Error moving item to column:', error.message);
+                if (!error.message.includes('already exists')) {
+                  console.error('Error:', error);
+                  throw error;
+                }
               }
             }
 
-            // Process the event and move the issue accordingly
-            async function processEvent() {
-              await initializeProject();
+            if (context.eventName === 'issues') {
+              const issueId = context.payload.issue.node_id;
+              const repo = context.payload.repository.name.toLowerCase();
+              
+              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                if (repo === 'fe') {
+                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.BACKLOG);
+                } else if (repo === 'be') {
+                  await moveIssueToColumn(issueId, PROJECT.COLUMNS.SPRINT_BACKLOG);
+                }
+              } else if (context.payload.action === 'closed') {
+                await moveIssueToColumn(issueId, PROJECT.COLUMNS.DONE);
 
-              if (!PROJECT.ID || !PROJECT.COLUMNS) {
-                console.error('Project initialization failed, skipping event processing.');
-                return;
-              }
-
-              if (context.eventName === 'issues') {
-                const issueNodeID = context.payload.issue.node_id;
-                if (context.payload.action === 'opened' || context.payload.action === 'reopened') 
-                  await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.BACKLOG);
-                else if (context.payload.action === 'closed')
-                  await moveIssueToColumn(issueNodeID, PROJECT.COLUMNS.DONE);
-              }
-
-              if (context.eventName === 'pull_request') {
-                const prNodeID = context.payload.pull_request.node_id;
-                if (context.payload.action === 'opened' || context.payload.action === 'reopened')
-                  await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.IN_REVIEW);
-                else if (context.payload.action === 'closed' && context.payload.pull_request.merged)
-                  await moveIssueToColumn(prNodeID, PROJECT.COLUMNS.DONE);
               }
             }
 
-            await processEvent();
+            if (context.eventName === 'pull_request') {
+              const prId = context.payload.pull_request.node_id;
+              
+              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
+              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+              }
+            }
