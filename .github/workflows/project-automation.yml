@@ -4,7 +4,7 @@ on:
   issues:
     types: [opened, reopened, closed]
   pull_request:
-    types: [opened, reopened, closed]
+    types: [opened, reopened, closed, assigned]
 
 permissions:
   contents: write
@@ -118,7 +118,9 @@ jobs:
               
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
-              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+              } else if (context.payload.action === 'assigned') {
+                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
+              }else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
               }
             }
