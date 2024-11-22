@@ -107,12 +107,17 @@ jobs:
 
             async function findProjectItem(contentId) {
               const query = `
-                query($orgName: String!, $projectNumber: Int!, $contentId: ID!) {
-                  organization(login: $orgName) {
-                    projectV2(number: $projectNumber) {
-                      items(first: 1, filter: {content: {id: {eq: $contentId}}}) {
+                query($projectId: ID!, $contentId: ID!) {
+                  node(id: $projectId) {
+                    ... on ProjectV2 {
+                      items(first: 100) {
                         nodes {
                           id
+                          content {
+                            ... on PullRequest {
+                              id
+                            }
+                          }
                         }
                       }
                     }
@@ -120,13 +125,22 @@ jobs:
                 }
               `;
 
-              const result = await github.graphql(query, {
-                orgName: context.repo.owner,
-                projectNumber: parseInt(PROJECT.ID.split('_')[1]), // Extract project number from ID
-                contentId: contentId
-              });
+              try {
+                const result = await github.graphql(query, {
+                  projectId: PROJECT.ID,
+                  contentId: contentId
+                });
 
-              return result.organization.projectV2.items.nodes[0]?.id;
+                const projectItem = result.node.items.nodes.find(
+                  item => item.content?.id === contentId
+                );
+
+                console.log('Found project item:', projectItem);
+                return projectItem?.id;
+              } catch (error) {
+                console.error('Error finding project item:', error);
+                throw error;
+              }
             }
 
             async function deleteFromProject(contentId) {
