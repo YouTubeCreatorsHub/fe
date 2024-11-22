@@ -6,49 +6,42 @@ on:
   pull_request:
     types: [opened, reopened, closed]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  repository-projects: write
+
 jobs:
   project_automation:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-      organization-projects: write
-      repository-projects: write
-      contents: read
     steps:
-      - uses: monry/actions-get-project-id@v2
-        id: get-project-id
-        with:
-          github-token: ${{ secrets.AUTO_ACTIONS }}
-          project-owner: 'YouTubeCreatorsHub'
-          project-number: 1
-
       - uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
             const PROJECT = {
-              ID: '${{ steps.get-project-id.outputs.project-id }}',
+              ID: 'PVT_kwDOC0FCP84AsibV',
+              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
               COLUMNS: {
-                BACKLOG: '17052d30',        // 📋 아직 스프린트에 할당되지 않은 전체 작업
-                SPRINT_BACKLOG: '2b4b3335',  // 📅 현재 스프린트에서 진행할 작업들
-                IN_PROGRESS: 'dc54b4f8',     // 💻 현재 진행 중인 작업
-                IN_REVIEW: '3fdc4773',       // 👀 PR 생성되어 코드 리뷰 중인 작업
-                DONE: '98236657'            // ✅ 완료되고 배포된 작업
+                BACKLOG: '17052d30',
+                SPRINT_BACKLOG: '2b4b3335',
+                IN_PROGRESS: 'dc54b4f8',
+                IN_REVIEW: '3fdc4773',
+                DONE: '98236657'
               }
             };
-            
-            // 이슈나 PR을 특정 컬럼으로 이동시키는 함수
+
             async function moveIssueToColumn(itemId, columnId) {
               const mutation = `
-                mutation {
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
                   updateProjectV2ItemFieldValue(
                     input: {
-                      projectId: "${PROJECT.ID}"
-                      itemId: "${itemId}"
-                      fieldId: "Status"
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
                       value: { 
-                        singleSelectOptionId: "${columnId}"
+                        singleSelectOptionId: $columnId
                       }
                     }
                   ) {
@@ -59,62 +52,35 @@ jobs:
                 }
               `;
               
-              try {
-                await github.graphql(mutation);
-              } catch (error) {
-                console.error('Error moving item:', error);
-                // 아이템이 아직 프로젝트에 없는 경우, 먼저 추가
-                if (error.message.includes('Could not resolve to a ProjectV2Item')) {
-                  const addMutation = `
-                    mutation {
-                      addProjectV2ItemById(input: {
-                        projectId: "${PROJECT.ID}"
-                        contentId: "${itemId}"
-                      }) {
-                        item {
-                          id
-                        }
-                      }
-                    }
-                  `;
-                  await github.graphql(addMutation);
-                  // 다시 상태 업데이트 시도
-                  await github.graphql(mutation);
-                } else {
-                  throw error;
-                }
-              }
+              await github.graphql(mutation, {
+                projectId: PROJECT.ID,
+                itemId: itemId,
+                fieldId: PROJECT.STATUS_FIELD,
+                columnId: columnId
+              });
             }
-            
-            // 이슈 자동화
+
             if (context.eventName === 'issues') {
               const repo = context.payload.repository.name.toLowerCase();
               
               if (context.payload.action === 'opened') {
-                // FE 레포지토리의 이슈는 Backlog로 이동
                 if (repo === 'fe') {
                   await moveIssueToColumn(context.payload.issue.node_id, PROJECT.COLUMNS.BACKLOG);
                 }
-                // BE 레포지토리의 이슈는 Sprint Backlog로 이동
                 else if (repo === 'be') {
                   await moveIssueToColumn(context.payload.issue.node_id, PROJECT.COLUMNS.SPRINT_BACKLOG);
                 }
               }
-              
-              // 이슈가 닫히면 Done으로 이동
               else if (context.payload.action === 'closed') {
                 await moveIssueToColumn(context.payload.issue.node_id, PROJECT.COLUMNS.DONE);
               }
             }
-            
-            // PR 자동화
+
             if (context.eventName === 'pull_request') {
               if (context.payload.action === 'opened') {
-                // PR이 열리면 In Review로 이동
                 await moveIssueToColumn(context.payload.pull_request.node_id, PROJECT.COLUMNS.IN_REVIEW);
               }
               else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                // PR이 머지되면 Done으로 이동
                 await moveIssueToColumn(context.payload.pull_request.node_id, PROJECT.COLUMNS.DONE);
               }
             }
