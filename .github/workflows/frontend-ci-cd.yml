@@ -7,7 +7,7 @@ on:
       - 'fe/**'
   pull_request:
     branches: [main, dev]
-    types: [opened, reopened, closed, assigned, unassigned, deleted]
+    types: [opened, reopened, closed, synchronize] # closed 포함
     paths:
       - 'fe/**'
 
@@ -68,7 +68,7 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
       - name: Configure AWS credentials
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -76,181 +76,11 @@ jobs:
           aws-region: ap-northeast-2
 
       - name: Deploy to S3
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         run: |
           aws s3 sync ./out s3://fe-youtube-deploy --delete
 
       - name: Invalidate CloudFront
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         run: |
           aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
-
-      - uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.AUTO_ACTIONS_TOKEN }}
-          script: |
-            // 프로젝트 설정
-            const PROJECT = {
-              ID: '${{ secrets.PROJECT_ID }}',
-              STATUS_FIELD: '${{ secrets.STATUS_FIELD_ID }}',
-              COLUMNS: {
-                BACKLOG: '17052d30',
-                SPRINT_BACKLOG: '2b4b3335',
-                IN_PROGRESS: 'dc54b4f8',
-                IN_REVIEW: '3fdc4773',
-                DONE: '98236657'
-              }
-            };
-
-            // 프로젝트 관련 GraphQL 뮤테이션
-            const mutations = {
-              add: `
-                mutation($projectId: ID!, $contentId: ID!) {
-                  addProjectV2ItemById(input: {
-                    projectId: $projectId
-                    contentId: $contentId
-                  }) {
-                    item { id }
-                  }
-                }
-              `,
-              updateStatus: `
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
-                  updateProjectV2ItemFieldValue(
-                    input: {
-                      projectId: $projectId
-                      itemId: $itemId
-                      fieldId: $fieldId
-                      value: { singleSelectOptionId: $columnId }
-                    }
-                  ) {
-                    projectV2Item { id }
-                  }
-                }
-              `,
-              delete: `
-                mutation($projectId: ID!, $itemId: ID!) {
-                  deleteProjectV2Item(input: {
-                    projectId: $projectId
-                    itemId: $itemId
-                  }) {
-                    deletedItemId
-                  }
-                }
-              `
-            };
-
-            // 프로젝트 작업 함수들
-            async function addToProject(contentId) {
-              const result = await github.graphql(mutations.add, {
-                projectId: PROJECT.ID,
-                contentId: contentId
-              });
-              return result.addProjectV2ItemById.item.id;
-            }
-
-            async function moveIssueToColumn(contentId, columnId) {
-              try {
-                const itemId = await addToProject(contentId);
-                console.log('Item added with ID:', itemId);
-                
-                await github.graphql(mutations.updateStatus, {
-                  projectId: PROJECT.ID,
-                  itemId: itemId,
-                  fieldId: PROJECT.STATUS_FIELD,
-                  columnId: columnId
-                });
-                
-                console.log('Status updated successfully');
-              } catch (error) {
-                if (!error.message.includes('already exists')) {
-                  console.error('Error:', error);
-                  throw error;
-                }
-              }
-            }
-
-            async function findProjectItem(contentId) {
-              const query = `
-                query($projectId: ID!) {
-                  node(id: $projectId) {
-                    ... on ProjectV2 {
-                      items(first: 100) {
-                        nodes {
-                          id
-                          content {
-                            ... on PullRequest {
-                              id
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              `;
-
-              try {
-                const result = await github.graphql(query, {
-                  projectId: PROJECT.ID
-                });
-
-                const projectItem = result.node.items.nodes.find(
-                  item => item.content?.id === contentId
-                );
-
-                console.log('Found project item:', projectItem);
-                return projectItem?.id;
-              } catch (error) {
-                console.error('Error finding project item:', error);
-                throw error;
-              }
-            }
-
-            async function deleteFromProject(contentId) {
-              try {
-                const projectItemId = await findProjectItem(contentId);
-                if (projectItemId) {
-                  await github.graphql(mutations.delete, {
-                    projectId: PROJECT.ID,
-                    itemId: projectItemId
-                  });
-                  console.log('Item successfully removed from project');
-                } else {
-                  console.log('Item not found in project');
-                }
-              } catch (error) {
-                console.error('Error removing item from project:', error);
-              }
-            }
-
-            // PR 처리
-            if (context.eventName === 'pull_request') {
-              const prId = context.payload.pull_request.node_id;
-              const hasAssignees = context.payload.pull_request.assignees?.length > 0;
-
-              switch (context.payload.action) {
-                case 'opened':
-                case 'reopened':
-                  await moveIssueToColumn(prId, 
-                    hasAssignees ? PROJECT.COLUMNS.IN_PROGRESS : PROJECT.COLUMNS.IN_REVIEW
-                  );
-                  break;
-                case 'assigned':
-                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
-                  break;
-                case 'unassigned':
-                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
-                  break;
-                case 'closed':
-                  if (context.payload.pull_request.merged) {
-                    await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
-                  } else {
-                    await deleteFromProject(prId);
-                  }
-                  break;
-                case 'deleted':
-                  await deleteFromProject(prId);
-                  break;
-              }
-            }
