@@ -7,6 +7,7 @@ on:
       - 'fe/**'
   pull_request:
     branches: [main, dev]
+    types: [opened, reopened, closed, assigned, unassigned, deleted]
     paths:
       - 'fe/**'
 
@@ -88,6 +89,7 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS_TOKEN }}
           script: |
+            // 프로젝트 설정
             const PROJECT = {
               ID: '${{ secrets.PROJECT_ID }}',
               STATUS_FIELD: '${{ secrets.STATUS_FIELD_ID }}',
@@ -100,25 +102,50 @@ jobs:
               }
             };
 
-            async function addToProject(contentId) {
-              const mutation = `
+            // 프로젝트 관련 GraphQL 뮤테이션
+            const mutations = {
+              add: `
                 mutation($projectId: ID!, $contentId: ID!) {
                   addProjectV2ItemById(input: {
                     projectId: $projectId
                     contentId: $contentId
                   }) {
-                    item {
-                      id
-                    }
+                    item { id }
                   }
                 }
-              `;
-              
-              const result = await github.graphql(mutation, {
+              `,
+              updateStatus: `
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
+                  updateProjectV2ItemFieldValue(
+                    input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: { singleSelectOptionId: $columnId }
+                    }
+                  ) {
+                    projectV2Item { id }
+                  }
+                }
+              `,
+              delete: `
+                mutation($projectId: ID!, $itemId: ID!) {
+                  deleteProjectV2Item(input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                  }) {
+                    deletedItemId
+                  }
+                }
+              `
+            };
+
+            // 프로젝트 작업 함수들
+            async function addToProject(contentId) {
+              const result = await github.graphql(mutations.add, {
                 projectId: PROJECT.ID,
                 contentId: contentId
               });
-              
               return result.addProjectV2ItemById.item.id;
             }
 
@@ -127,26 +154,7 @@ jobs:
                 const itemId = await addToProject(contentId);
                 console.log('Item added with ID:', itemId);
                 
-                const mutation = `
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
-                    updateProjectV2ItemFieldValue(
-                      input: {
-                        projectId: $projectId
-                        itemId: $itemId
-                        fieldId: $fieldId
-                        value: { 
-                          singleSelectOptionId: $columnId
-                        }
-                      }
-                    ) {
-                      projectV2Item {
-                        id
-                      }
-                    }
-                  }
-                `;
-                
-                await github.graphql(mutation, {
+                await github.graphql(mutations.updateStatus, {
                   projectId: PROJECT.ID,
                   itemId: itemId,
                   fieldId: PROJECT.STATUS_FIELD,
@@ -162,12 +170,33 @@ jobs:
               }
             }
 
+            // PR 처리
             if (context.eventName === 'pull_request') {
               const prId = context.payload.pull_request.node_id;
-              
-              if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
-              } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
-                await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+              const hasAssignees = context.payload.pull_request.assignees?.length > 0;
+
+              switch (context.payload.action) {
+                case 'opened':
+                case 'reopened':
+                  await moveIssueToColumn(prId, 
+                    hasAssignees ? PROJECT.COLUMNS.IN_PROGRESS : PROJECT.COLUMNS.IN_REVIEW
+                  );
+                  break;
+                case 'assigned':
+                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_PROGRESS);
+                  break;
+                case 'unassigned':
+                  await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
+                  break;
+                case 'closed':
+                  if (context.payload.pull_request.merged) {
+                    await moveIssueToColumn(prId, PROJECT.COLUMNS.DONE);
+                  } else {
+                    await deleteFromProject(prId);
+                  }
+                  break;
+                case 'deleted':
+                  await deleteFromProject(prId);
+                  break;
               }
             }
