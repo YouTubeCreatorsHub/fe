@@ -39,30 +39,11 @@ jobs:
               }
 
               try {
+                console.log('Moving item:', { contentId, columnId });
+
                 // 먼저 아이템이 프로젝트에 있는지 확인
-                const findItemQuery = `
-                  query($projectId: ID!, $contentId: ID!) {
-                    node(id: $projectId) {
-                      ... on ProjectV2 {
-                        items(first: 1, filter: {contentId: $contentId}) {
-                          nodes {
-                            id
-                          }
-                        }
-                      }
-                    }
-                  }
-                `;
-
-                const findResult = await github.graphql(findItemQuery, {
-                  projectId: PROJECT.ID,
-                  contentId: contentId
-                });
-
                 let itemId;
-                
-                // 아이템이 없으면 추가
-                if (!findResult.node.items.nodes.length) {
+                try {
                   const addMutation = `
                     mutation($projectId: ID!, $contentId: ID!) {
                       addProjectV2ItemById(input: {
@@ -82,8 +63,37 @@ jobs:
                   });
                   
                   itemId = addResult.addProjectV2ItemById.item.id;
-                } else {
-                  itemId = findResult.node.items.nodes[0].id;
+                  console.log('Item added successfully, itemId:', itemId);
+                } catch (error) {
+                  if (error.message.includes('already exists')) {
+                    // 이미 존재하는 경우 아이템 ID 조회
+                    const findQuery = `
+                      query($projectId: ID!, $contentId: ID!) {
+                        node(id: $projectId) {
+                          ... on ProjectV2 {
+                            items(first: 1, filter: {contentId: $contentId}) {
+                              nodes {
+                                id
+                              }
+                            }
+                          }
+                        }
+                      }
+                    `;
+                    
+                    const findResult = await github.graphql(findQuery, {
+                      projectId: PROJECT.ID,
+                      contentId: contentId
+                    });
+                    
+                    itemId = findResult.node.items.nodes[0]?.id;
+                  } else {
+                    throw error;
+                  }
+                }
+
+                if (!itemId) {
+                  throw new Error('Failed to get item ID');
                 }
 
                 // 상태 업데이트
@@ -109,16 +119,23 @@ jobs:
                   columnId: columnId
                 });
 
+                console.log('Status updated successfully');
               } catch (error) {
-                console.error('Error:', error);
+                console.error('Error moving item:', error);
                 throw error;
               }
             }
 
-            // 이벤트 처리
+            // 이슈 처리
             if (context.eventName === 'issues') {
-              const issueId = context.payload.issue.node_id;
+              const issueId = context.payload.issue?.node_id;
+              if (!issueId) {
+                console.error('No issue node_id found in payload');
+                return;
+              }
+              
               const repo = context.payload.repository.name.toLowerCase();
+              console.log('Processing issue:', { repo, action: context.payload.action });
 
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                 if (repo === 'fe') {
@@ -131,9 +148,19 @@ jobs:
               }
             }
 
+            // PR 처리
             if (context.eventName === 'pull_request') {
-              const prId = context.payload.pull_request.node_id;
-              
+              const prId = context.payload.pull_request?.node_id;
+              if (!prId) {
+                console.error('No PR node_id found in payload');
+                return;
+              }
+
+              console.log('Processing PR:', { 
+                action: context.payload.action, 
+                merged: context.payload.pull_request.merged 
+              });
+
               if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
                 await moveIssueToColumn(prId, PROJECT.COLUMNS.IN_REVIEW);
               } else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
@@ -158,6 +185,7 @@ jobs:
                 pull_number: context.payload.pull_request.number,
                 reviewers: ['choco5958', 'lim3873', 'tlswltjq']
               });
+              console.log('Reviewers added successfully');
             } catch (error) {
               console.error('Error adding reviewers:', error);
             }
