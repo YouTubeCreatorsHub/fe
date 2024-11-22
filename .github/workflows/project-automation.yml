@@ -9,8 +9,6 @@ on:
 jobs:
   project_automation:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: true
     permissions:
       issues: write
       pull-requests: write
@@ -18,12 +16,14 @@ jobs:
       repository-projects: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
+            const PROJECT_NUMBER = 1; // 프로젝트 번호
+            const ORG = 'YouTubeCreatorsHub'; // 조직 이름
+            
+            // 프로젝트 ID와 필드 ID를 가져오는 쿼리
             const projectQuery = `
               query($org: String!, $number: Int!) {
                 organization(login: $org) {
@@ -46,18 +46,57 @@ jobs:
               }
             `;
 
-            try {
-              const projectResult = await github.graphql(projectQuery, {
-                org: "YouTubeCreatorsHub",
-                number: 1
-              });
+            // 상태 값 매핑
+            const COLUMNS = {
+              BACKLOG: 'Backlog',
+              SPRINT_BACKLOG: 'Sprint Backlog',
+              IN_PROGRESS: 'In Progress',
+              IN_REVIEW: 'In Review',
+              DONE: 'Done'
+            };
 
-              if (!projectResult.organization?.projectV2) {
-                throw new Error('Project not found');
+            async function moveIssueToColumn(projectId, itemId, fieldId, statusName, statusOptions) {
+              const statusOption = statusOptions.find(option => option.name === statusName);
+              if (!statusOption) {
+                throw new Error(`Status option ${statusName} not found`);
               }
 
-              const projectId = projectResult.organization.projectV2.id;
-              const statusField = projectResult.organization.projectV2.fields.nodes.find(
+              const mutation = `
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                  updateProjectV2ItemFieldValue(
+                    input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: { 
+                        singleSelectOptionId: $optionId
+                      }
+                    }
+                  ) {
+                    projectV2Item {
+                      id
+                    }
+                  }
+                }
+              `;
+
+              return github.graphql(mutation, {
+                projectId: projectId,
+                itemId: itemId,
+                fieldId: fieldId,
+                optionId: statusOption.id
+              });
+            }
+
+            try {
+              // 프로젝트 정보 가져오기
+              const projectInfo = await github.graphql(projectQuery, {
+                org: ORG,
+                number: PROJECT_NUMBER
+              });
+
+              const projectId = projectInfo.organization.projectV2.id;
+              const statusField = projectInfo.organization.projectV2.fields.nodes.find(
                 field => field.name === "Status"
               );
 
@@ -65,70 +104,29 @@ jobs:
                 throw new Error('Status field not found');
               }
 
-              const addMutation = `
-                mutation($projectId: ID!, $contentId: ID!) {
-                  addProjectV2ItemById(input: {
-                    projectId: $projectId
-                    contentId: $contentId
-                  }) {
-                    item {
-                      id
-                    }
-                  }
-                }
-              `;
-
-              let contentId;
-              let statusOptionId;
-
+              // 이슈 자동화
               if (context.eventName === 'issues') {
-                contentId = context.payload.issue.node_id;
-                statusOptionId = context.payload.action === 'closed' 
-                  ? statusField.options.find(o => o.name === 'Done')?.id
-                  : statusField.options.find(o => o.name === 'Backlog')?.id;
-              } else if (context.eventName === 'pull_request') {
-                contentId = context.payload.pull_request.node_id;
-                statusOptionId = context.payload.action === 'closed' 
-                  ? statusField.options.find(o => o.name === 'Done')?.id
-                  : statusField.options.find(o => o.name === 'In Review')?.id;
-              }
+                const repo = context.payload.repository.name.toLowerCase();
+                const itemId = context.payload.issue.node_id;
 
-              if (!statusOptionId) {
-                throw new Error('Status option not found');
-              }
-
-              try {
-                const addResult = await github.graphql(addMutation, {
-                  projectId,
-                  contentId
-                });
-
-                if (addResult.addProjectV2ItemById?.item?.id) {
-                  const updateMutation = `
-                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                      updateProjectV2ItemFieldValue(input: {
-                        projectId: $projectId
-                        itemId: $itemId
-                        fieldId: $fieldId
-                        value: { singleSelectOptionId: $optionId }
-                      }) {
-                        projectV2Item {
-                          id
-                        }
-                      }
-                    }
-                  `;
-
-                  await github.graphql(updateMutation, {
-                    projectId,
-                    itemId: addResult.addProjectV2ItemById.item.id,
-                    fieldId: statusField.id,
-                    optionId: statusOptionId
-                  });
+                if (context.payload.action === 'opened') {
+                  const targetStatus = repo === 'fe' ? COLUMNS.BACKLOG : COLUMNS.SPRINT_BACKLOG;
+                  await moveIssueToColumn(projectId, itemId, statusField.id, targetStatus, statusField.options);
                 }
-              } catch (error) {
-                if (!error.message.includes('Project item already exists')) {
-                  throw error;
+                else if (context.payload.action === 'closed') {
+                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.DONE, statusField.options);
+                }
+              }
+
+              // PR 자동화
+              if (context.eventName === 'pull_request') {
+                const itemId = context.payload.pull_request.node_id;
+
+                if (context.payload.action === 'opened') {
+                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.IN_REVIEW, statusField.options);
+                }
+                else if (context.payload.action === 'closed' && context.payload.pull_request.merged) {
+                  await moveIssueToColumn(projectId, itemId, statusField.id, COLUMNS.DONE, statusField.options);
                 }
               }
 
