@@ -105,13 +105,39 @@ jobs:
               }
             }
 
-            async function deleteFromProject(itemId) {
+            async function findProjectItem(contentId) {
+              const query = `
+                query($projectId: ID!, $contentId: ID!) {
+                  projectV2(id: $projectId) {
+                    items(first: 1, filter: {content: {id: {eq: $contentId}}}) {
+                      nodes {
+                        id
+                      }
+                    }
+                  }
+                }
+              `;
+
+              const result = await github.graphql(query, {
+                projectId: PROJECT.ID,
+                contentId: contentId
+              });
+
+              return result.projectV2.items.nodes[0]?.id;
+            }
+
+            async function deleteFromProject(contentId) {
               try {
-                await github.graphql(mutations.delete, {
-                  projectId: PROJECT.ID,
-                  itemId: itemId
-                });
-                console.log('Item successfully removed from project');
+                const projectItemId = await findProjectItem(contentId);
+                if (projectItemId) {
+                  await github.graphql(mutations.delete, {
+                    projectId: PROJECT.ID,
+                    itemId: projectItemId
+                  });
+                  console.log('Item successfully removed from project');
+                } else {
+                  console.log('Item not found in project');
+                }
               } catch (error) {
                 console.error('Error removing item from project:', error);
               }
