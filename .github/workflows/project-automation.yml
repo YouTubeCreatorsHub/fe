@@ -37,59 +37,50 @@ jobs:
             };
 
             async function addToProject(contentId) {
-              try {
-                const mutation = `
-                  mutation($projectId: ID!, $contentId: ID!) {
-                    addProjectV2ItemById(input: {
-                      projectId: $projectId
-                      contentId: $contentId
-                    }) {
-                      item {
-                        id
-                      }
+              const mutation = `
+                mutation($input: AddProjectV2ItemByIdInput!) {
+                  addProjectV2ItemById(input: $input) {
+                    item {
+                      id
                     }
                   }
-                `;
-                
-                const response = await github.graphql(mutation, {
+                }
+              `;
+              
+              const variables = {
+                input: {
                   projectId: PROJECT.ID,
                   contentId: contentId
-                });
-                
-                return response.addProjectV2ItemById.item.id;
-              } catch (error) {
-                console.error('Error adding item:', error);
-                throw error;
-              }
+                }
+              };
+              
+              const result = await github.graphql(mutation, variables);
+              return result.addProjectV2ItemById.item.id;
             }
 
             async function updateStatus(itemId, columnId) {
-              try {
-                const mutation = `
-                  mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
-                    updateProjectV2ItemFieldValue(input: {
-                      projectId: $projectId
-                      itemId: $itemId
-                      fieldId: $fieldId
-                      value: { singleSelectOptionId: $columnId }
-                    }) {
-                      projectV2Item {
-                        id
-                      }
+              const mutation = `
+                mutation($input: UpdateProjectV2ItemFieldValueInput!) {
+                  updateProjectV2ItemFieldValue(input: $input) {
+                    projectV2Item {
+                      id
                     }
                   }
-                `;
-                
-                await github.graphql(mutation, {
+                }
+              `;
+              
+              const variables = {
+                input: {
                   projectId: PROJECT.ID,
                   itemId: itemId,
                   fieldId: PROJECT.STATUS_FIELD,
-                  columnId: columnId
-                });
-              } catch (error) {
-                console.error('Error updating status:', error);
-                throw error;
-              }
+                  value: {
+                    singleSelectOptionId: columnId
+                  }
+                }
+              };
+              
+              await github.graphql(mutation, variables);
             }
 
             async function moveIssueToColumn(contentId, columnId) {
@@ -100,8 +91,10 @@ jobs:
                 await updateStatus(itemId, columnId);
                 console.log('Status updated successfully');
               } catch (error) {
-                console.error('Error:', error.message);
-                throw error;
+                if (!error.message.includes('already exists')) {
+                  console.error('Error:', error);
+                  throw error;
+                }
               }
             }
 
