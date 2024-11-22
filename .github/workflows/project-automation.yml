@@ -127,8 +127,7 @@ jobs:
 
               try {
                 const result = await github.graphql(query, {
-                  projectId: PROJECT.ID,
-                  contentId: contentId
+                  projectId: PROJECT.ID
                 });
 
                 const projectItem = result.node.items.nodes.find(
