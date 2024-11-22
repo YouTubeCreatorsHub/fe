@@ -38,8 +38,17 @@ jobs:
 
             async function moveIssueToColumn(itemId, columnId) {
               const mutation = `
-                mutation($input: UpdateProjectV2ItemFieldValueInput!) {
-                  updateProjectV2ItemFieldValue(input: $input) {
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $columnId: String!) {
+                  updateProjectV2ItemFieldValue(
+                    input: {
+                      projectId: $projectId
+                      itemId: $itemId
+                      fieldId: $fieldId
+                      value: { 
+                        singleSelectOptionId: $columnId
+                      }
+                    }
+                  ) {
                     projectV2Item {
                       id
                     }
@@ -47,18 +56,12 @@ jobs:
                 }
               `;
               
-              const variables = {
-                input: {
-                  projectId: PROJECT.ID,
-                  itemId: itemId,
-                  fieldId: PROJECT.STATUS_FIELD,  // "Status" 대신 실제 필드 ID 사용
-                  value: {
-                    singleSelectOptionId: columnId
-                  }
-                }
-              };
-              
-              await github.graphql(mutation, variables);
+              await github.graphql(mutation, {
+                projectId: PROJECT.ID,
+                itemId: itemId,
+                fieldId: PROJECT.STATUS_FIELD,
+                columnId: columnId
+              });
             }
 
             if (context.eventName === 'issues') {
