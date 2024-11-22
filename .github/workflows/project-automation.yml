@@ -24,9 +24,35 @@ jobs:
         with:
           github-token: ${{ secrets.AUTO_ACTIONS }}
           script: |
+            const projectQuery = `
+                query {
+                  organization(login: "YouTubeCreatorsHub") {
+                    projectV2(number: 1) {
+                      id
+                      fields(first: 20) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                              id
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+  
+              const projectData = await github.graphql(projectQuery);
+              const statusField = projectData.organization.projectV2.fields.nodes.find(
+                field => field.name === 'Status'
+              );
             const PROJECT = {
-              ID: '${{ secrets.PROJECT_ID }}',
-              STATUS_FIELD: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
+              ID: projectData.organization.projectV2.id,
+              STATUS_FIELD: statusField.id,
               COLUMNS: {
                 BACKLOG: '17052d30',
                 SPRINT_BACKLOG: '2b4b3335',
