@@ -79,7 +79,7 @@ jobs:
                   input: {
                     projectId: PROJECT.ID,
                     itemId: itemId,
-                    fieldId: PROJECT.STATUS_FIELD,
+                    fieldId: 'PVTSSF_lADOC0FCP84AsibVzgjchQE',
                     value: {
                       singleSelectOptionId: columnId
                     }
