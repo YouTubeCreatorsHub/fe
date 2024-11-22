@@ -107,11 +107,13 @@ jobs:
 
             async function findProjectItem(contentId) {
               const query = `
-                query($projectId: ID!, $contentId: ID!) {
-                  projectV2(id: $projectId) {
-                    items(first: 1, filter: {content: {id: {eq: $contentId}}}) {
-                      nodes {
-                        id
+                query($orgName: String!, $projectNumber: Int!, $contentId: ID!) {
+                  organization(login: $orgName) {
+                    projectV2(number: $projectNumber) {
+                      items(first: 1, filter: {content: {id: {eq: $contentId}}}) {
+                        nodes {
+                          id
+                        }
                       }
                     }
                   }
@@ -119,11 +121,12 @@ jobs:
               `;
 
               const result = await github.graphql(query, {
-                projectId: PROJECT.ID,
+                orgName: context.repo.owner,
+                projectNumber: parseInt(PROJECT.ID.split('_')[1]), // Extract project number from ID
                 contentId: contentId
               });
 
-              return result.projectV2.items.nodes[0]?.id;
+              return result.organization.projectV2.items.nodes[0]?.id;
             }
 
             async function deleteFromProject(contentId) {
