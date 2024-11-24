@@ -4,12 +4,12 @@ on:
   push:
     branches: [main, dev]
     paths:
-      - '**' # fe 디렉토리 내 모든 변경사항 감지
+      - '**'
   pull_request:
     branches: [main, dev]
     types: [opened, reopened, closed, synchronize]
     paths:
-      - '**' # fe 디렉토리 내 모든 변경사항 감지
+      - '**'
 
 permissions:
   contents: write
@@ -22,8 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: . # 현재 디렉토리로 수정
-
+        working-directory: .
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +31,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: './package-lock.json' # 경로 수정
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -52,8 +51,7 @@ jobs:
           echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" >> .env
 
       - name: Lint
-        run: |
-          npm run lint
+        run: npm run lint
 
       - name: Type check
         run: npm run typecheck
@@ -66,8 +64,24 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./out
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-output
+          path: ./out
+
       - name: Configure AWS credentials
-        if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -75,11 +89,9 @@ jobs:
           aws-region: ap-northeast-2
 
       - name: Deploy to S3
-        if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         run: |
           aws s3 sync ./out s3://fe-youtube-deploy --delete
 
       - name: Invalidate CloudFront
-        if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
         run: |
           aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
