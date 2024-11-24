@@ -1,0 +1,6 @@
+README.md
+tailwind.config.ts
+*.css
+*.scss
+*.sass
+*.less
