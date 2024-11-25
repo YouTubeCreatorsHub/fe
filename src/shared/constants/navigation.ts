@@ -1,5 +1,11 @@
 export const NAVIGATION_ITEMS = [
   {
+    id: 'home',
+    label: '홈',
+    path: '/',
+    children: [],
+  },
+  {
     id: 'utility',
     label: '유틸리티',
     path: '/utility',

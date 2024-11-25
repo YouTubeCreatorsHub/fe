@@ -18,7 +18,7 @@ import { NavigationItem } from '@/shared/types/navigation';
 
 export default function Navigation() {
   const router = useRouter();
-  const [value, setValue] = useState<string>('');
+  const [value, setValue] = useState<string>('home');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
