@@ -11,12 +11,6 @@ on:
     paths:
       - '**'
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  id-token: write
-
 jobs:
   build:
     runs-on: ubuntu-latest

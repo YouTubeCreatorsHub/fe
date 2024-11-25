@@ -1,4 +1,4 @@
-import '@/styles/globals.css';
+import Header from '@/components/common/header/header';
 
 export default function RootLayout({
   children,
@@ -6,9 +6,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="en">
       <body>
-        <main className="min-h-screen">{children}</main>
+        <Header />
+        <main className="p-4">{children}</main>
       </body>
     </html>
   );
