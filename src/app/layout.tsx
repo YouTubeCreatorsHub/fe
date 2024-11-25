@@ -1,5 +1,5 @@
 import Header from '@/components/common/header/header';
-import { Providers } from './providers';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 
 export default function RootLayout({
   children,
@@ -9,10 +9,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <Providers>
+        <AppRouterCacheProvider>
           <Header />
           {children}
-        </Providers>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );
