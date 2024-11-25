@@ -3,5 +3,5 @@ export interface NavigationItem {
   label: string;
   path: string;
   icon?: string;
-  children?: Omit<NavigationItem, 'children'>[];
+  children?: readonly Omit<NavigationItem, 'children'>[];
 }

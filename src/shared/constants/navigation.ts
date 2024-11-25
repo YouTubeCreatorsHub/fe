@@ -3,7 +3,7 @@ export const NAVIGATION_ITEMS = [
     id: 'utility',
     label: '유틸리티',
     path: '/utility',
-    Children: [
+    children: [
       { id: 'imageConverter', label: '이미지컨버터', path: '/imageConverter' },
     ],
   },

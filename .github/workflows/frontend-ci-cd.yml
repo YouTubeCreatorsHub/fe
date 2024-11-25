@@ -2,11 +2,11 @@ name: Frontend CI/CD
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
     paths:
       - '**'
   pull_request:
-    branches: [main, dev]
+    branches: [main]
     types: [opened, reopened, closed, synchronize]
     paths:
       - '**'

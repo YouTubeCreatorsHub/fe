@@ -1,19 +1,24 @@
-import Link from 'next/link';
+import { AppBar, Toolbar, Typography, Box } from '@mui/material';
+import Navigation from '../navigation/navigation';
 
 export default function Header() {
   return (
-    <header className="p-4 bg-gray-50 border-b border-gray-200">
-      <h1 className="text-2xl font-bold">My Next.js App</h1>
-      <nav>
-        <ul className="flex gap-4 mt-2">
-          <li>
-            <Link href="/products">Products</Link>
-          </li>
-          <li>
-            <Link href="/users">Users</Link>
-          </li>
-        </ul>
-      </nav>
-    </header>
+    <AppBar position="static" color="default">
+      <Toolbar>
+        <Typography
+          variant="h6"
+          component="div"
+          sx={{
+            flexGrow: 1,
+            fontWeight: 'bold',
+          }}
+        >
+          YoutubeCreatorsHub
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Navigation />
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 }
