@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Box,
   Tabs,
@@ -18,14 +18,31 @@ import { NavigationItem } from '@/shared/types/navigation';
 
 export default function Navigation() {
   const router = useRouter();
+  const pathname = usePathname();
   const [value, setValue] = useState<string>('home');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
+  useEffect(() => {
+    const activeTab = NAVIGATION_ITEMS.find((item) => {
+      if (pathname === item.path) return true;
+      if (item.children?.length > 0) {
+        return item.children.some(
+          (child) => pathname === `${item.path}${child.path}`,
+        );
+      }
+      return false;
+    });
+
+    if (activeTab) {
+      setValue(activeTab.id);
+    }
+  }, [pathname]);
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
     setValue(newValue);
     const items = NAVIGATION_ITEMS.find((item) => item.id === newValue);
-    if (items && !items.children) {
+    if (items) {
       router.push(items.path);
     }
   };
@@ -86,14 +103,23 @@ export default function Navigation() {
                   {openDropdown &&
                     NAVIGATION_ITEMS.find(
                       (item) => item.id === openDropdown,
-                    )?.children?.map((child) => (
-                      <MenuItem
-                        key={child.id}
-                        onClick={() => handleMenuItemClick(child.path)}
-                      >
-                        {child.label}
-                      </MenuItem>
-                    ))}
+                    )?.children?.map((child) => {
+                      const parentPath =
+                        NAVIGATION_ITEMS.find(
+                          (item) => item.id === openDropdown,
+                        )?.path || '';
+
+                      return (
+                        <MenuItem
+                          key={child.id}
+                          onClick={() =>
+                            handleMenuItemClick(`${parentPath}${child.path}`)
+                          }
+                        >
+                          {child.label}
+                        </MenuItem>
+                      );
+                    })}
                 </MenuList>
               </ClickAwayListener>
             </Paper>
