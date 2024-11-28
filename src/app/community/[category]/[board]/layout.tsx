@@ -1,4 +1,4 @@
-export default function CommunityLayout({
+export default function Boardayout({
   children,
 }: {
   children: React.ReactNode;
