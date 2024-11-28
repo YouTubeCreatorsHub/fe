@@ -3,5 +3,5 @@ export default function CommunityNoticeLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <section>{children}</section>;
+  return <>{children}</>;
 }

@@ -27,11 +27,12 @@
     "prettier/prettier": [
       "error",
       {
-        "endOfLine": "auto",
         "singleQuote": true,
         "trailingComma": "all",
+        "printWidth": 80,
         "tabWidth": 2,
-        "useTabs": false // 추가: 탭 대신 공백 사용
+        "semi": true,
+        "endOfLine": "auto"
       }
     ],
 
@@ -47,6 +48,30 @@
         "jsx": "never",
         "ts": "never",
         "tsx": "never"
+      }
+    ],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error"],
+    "react/require-default-props": "off",
+    "react/function-component-definition": [
+      "error",
+      {
+        "namedComponents": "function-declaration",
+        "unnamedComponents": "arrow-function"
+      }
+    ],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "import/order": [
+      "error",
+      {
+        "groups": [
+          ["builtin", "external"],
+          "internal",
+          ["parent", "sibling"],
+          "index"
+        ],
+        "newlines-between": "always"
       }
     ]
   },
