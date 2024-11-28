@@ -3,5 +3,5 @@ export default function CommunityMainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return { children };
 }

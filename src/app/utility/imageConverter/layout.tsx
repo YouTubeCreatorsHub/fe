@@ -3,5 +3,5 @@ export default function UtilityImageConverterLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return { children };
 }
