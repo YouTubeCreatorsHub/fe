@@ -1,4 +1,3 @@
-// components/ImageConverter.tsx
 'use client';
 
 import { useState } from 'react';

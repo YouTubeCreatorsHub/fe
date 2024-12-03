@@ -1,5 +1,3 @@
-import path from 'path';
-
 export const NAVIGATION_ITEMS = [
   {
     id: 'home',
