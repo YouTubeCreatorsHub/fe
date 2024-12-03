@@ -7,13 +7,13 @@ import { converterAPI } from '@/infrastructure/api/endpoints/utility/converter';
 export default function ImageConverter() {
   const [file, setFile] = useState<File | null>(null);
   const [isConverting, setIsConverting] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [isError, setIsError] = useState<string>('');
 
   const handleConvert = async () => {
     if (!file) return;
 
     setIsConverting(true);
-    setError('');
+    setIsError('');
 
     try {
       const blob = await converterAPI.webpConverter(file);
@@ -27,7 +27,7 @@ export default function ImageConverter() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
-      setError('이미지 변환에 실패했습니다.');
+      setIsError('이미지 변환에 실패했습니다.');
       console.error('변환 실패:', error);
     } finally {
       setIsConverting(false);
@@ -47,9 +47,9 @@ export default function ImageConverter() {
         style={{ marginBottom: 20 }}
       />
 
-      {error && (
+      {isError && (
         <Typography color="error" sx={{ mb: 2 }}>
-          {error}
+          {isError}
         </Typography>
       )}
 
