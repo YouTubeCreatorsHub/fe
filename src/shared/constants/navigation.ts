@@ -1,3 +1,5 @@
+import path from 'path';
+
 export const NAVIGATION_ITEMS = [
   {
     id: 'home',
@@ -10,7 +12,7 @@ export const NAVIGATION_ITEMS = [
     label: '유틸리티',
     path: '/utility',
     children: [
-      { id: 'imageConverter', label: '이미지컨버터', path: '/imageConverter' },
+      { id: 'webpConverter', label: 'webp컨버터', path: '/webpConverter' },
     ],
   },
   {

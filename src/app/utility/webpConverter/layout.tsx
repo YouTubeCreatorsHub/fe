@@ -1,4 +1,4 @@
-export default function UtilityImageConverterLayout({
+export default function UtilityWebpConverterLayout({
   children,
 }: {
   children: React.ReactNode;
