@@ -12,7 +12,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prettier": "prettier --write .",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "prod": "pm2 start npm --name next-app -- start",
+    "deploy:dev": "next build && pm2 startOrRestart ecosystem.config.js --env dev",
+    "deploy:prod": "next build && pm2 startOrRestart ecosystem.config.js --env prod"
   },
   "dependencies": {
     "@emotion/cache": "^11.13.5",
