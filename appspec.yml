@@ -1,21 +1,30 @@
 version: 0.0
-os: linux # 배포 대상 운영체제
+os: linux
+
 files:
-  - source: / # 소스 경로 (빌드된 파일들의 위치)
-    destination: /usr/share/nginx/html # nginx의 웹 루트 디렉토리
-    overwrite: yes # 기존 파일 덮어쓰기
-permissions: # 파일 권한 설정
-  - object: /usr/share/nginx/html
-    pattern: '**' # 모든 파일에 적용
-    owner: nginx # nginx 사용자를 소유자로
-    group: nginx # nginx 그룹을 그룹으로
-    mode: 755 # 파일 권한 (rwxr-xr-x)
-hooks: # 배포 생명주기 훅
-  BeforeInstall: # 설치 전 실행
+  - source: /
+    destination: /home/ubuntu/app
+    overwrite: yes
+
+permissions:
+  - object: /home/ubuntu/app
+    pattern: '**'
+    owner: ubuntu
+    group: ubuntu
+    mode: 755
+
+hooks:
+  BeforeInstall:
     - location: scripts/before_install.sh
       timeout: 300
-      runas: root
-  AfterInstall: # 설치 후 실행
+      runas: ubuntu
+
+  AfterInstall:
     - location: scripts/after_install.sh
       timeout: 300
-      runas: root
+      runas: ubuntu
+
+  ApplicationStart:
+    - location: scripts/start_application.sh
+      timeout: 300
+      runas: ubuntu
