@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prettier": "prettier --write .",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "deploy": "pm2 start ecosystem.config.js --env production"
   },
   "dependencies": {
     "@emotion/cache": "^11.13.5",

@@ -3,20 +3,22 @@ name: Frontend CI/CD
 on:
   push:
     branches: [main]
-    paths:
-      - '**'
+    paths-ignore:
+      - '**.md'
   pull_request:
     branches: [main]
     types: [opened, reopened, closed, synchronize]
-    paths:
-      - '**'
+    paths-ignore:
+      - '**.md'
+
+env:
+  S3_BUCKET_NAME: fe-youtube-deploy
+  CODE_DEPLOY_APPLICATION_NAME: youtube-fe-app
+  CODE_DEPLOY_DEPLOYMENT_GROUP_NAME: youtube-fe-group
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
     steps:
       - uses: actions/checkout@v4
 
@@ -25,55 +27,25 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Cache Next.js build
-        uses: actions/cache@v3
-        with:
-          path: |
-            ./.next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('./package-lock.json') }}-${{ hashFiles('./**.[jt]s', './**.[jt]sx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('./package-lock.json') }}-
 
       - name: Create env file
         run: |
           touch .env
           echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" >> .env
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Run tests
-        run: npm run test
+          echo "NEXT_PUBLIC_YOUTUBE_API_KEY=${{ secrets.NEXT_PUBLIC_YOUTUBE_API_KEY }}" >> .env
 
       - name: Build
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_YOUTUBE_API_KEY: ${{ secrets.NEXT_PUBLIC_YOUTUBE_API_KEY }}
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-output
-          path: ./out
-
-  deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: build-output
-          path: ./out
+      - name: Make zip file
+        run: zip -qq -r ./$GITHUB_SHA.zip .
+        shell: bash
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -82,10 +54,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      - name: Deploy to S3
-        run: |
-          aws s3 sync ./out s3://fe-youtube-deploy --delete
+      - name: Upload to S3
+        run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.zip s3://$S3_BUCKET_NAME/$GITHUB_SHA.zip
 
-      - name: Invalidate CloudFront
+      - name: Code Deploy
         run: |
-          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+          aws deploy create-deployment \
+          --deployment-config-name CodeDeployDefault.AllAtOnce \
+          --application-name ${{ env.CODE_DEPLOY_APPLICATION_NAME }} \
+          --deployment-group-name ${{ env.CODE_DEPLOY_DEPLOYMENT_GROUP_NAME }} \
+          --s3-location bucket=$S3_BUCKET_NAME,bundleType=zip,key=$GITHUB_SHA.zip
