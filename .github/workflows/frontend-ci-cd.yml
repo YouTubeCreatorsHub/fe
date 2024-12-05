@@ -64,7 +64,7 @@ jobs:
 
       - name: Build
         run: |
-          export NODE_OPTIONS="--max-old-space-size=512"
+          export NODE_OPTIONS="--max-old-space-size=1024"
           npm run build
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
