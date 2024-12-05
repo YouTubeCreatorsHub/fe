@@ -18,7 +18,8 @@ export NODE_OPTIONS="--max-old-space-size=512"
 # 의존성 설치 (npm ci 대신 npm install --production 사용)
 echo "> npm 패키지 설치" >> $DEPLOY_LOG
 cd $APP_DIR
-npm install --production --no-optional
+npm install
+npm install --save-dev eslint typescript @types/node
 
 # 빌드
 echo "> Next.js 빌드 시작" >> $DEPLOY_LOG
