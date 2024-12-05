@@ -1,2 +1,2 @@
 #!/bin/bash
-rm -f /home/ec2-user/app/fe/.env
+rm -f /home/ec2-user/app/.env
