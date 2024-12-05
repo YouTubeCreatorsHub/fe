@@ -1,21 +1,18 @@
 import type { NextConfig } from 'next';
+import type { Configuration as WebpackConfig } from 'webpack';
 const path = require('path');
 
 const nextConfig: NextConfig = {
-  webpack: (config) => {
+  webpack: (config: WebpackConfig) => {
     config.resolve = {
       ...config.resolve,
       alias: {
-        ...config.resolve.alias,
-        '@': path.resolve(__dirname, 'src'),
-      },
-      // 대소문자 구분 설정 - 지원되는 속성만 사용
-      enforceExtension: false,
-      fullySpecified: false
+        '@': path.resolve(__dirname, 'src')
+      }
     };
-
+    
     return config;
-  },
+  }
 };
 
 module.exports = nextConfig;
