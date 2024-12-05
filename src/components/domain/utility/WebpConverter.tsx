@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { converterAPI } from '@/infrastructure/api/endpoints/utility/converter';
 
-export default function ImageConverter() {
+export default function WebpConverter() {
   const [file, setFile] = useState<File | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [isError, setIsError] = useState<string>('');

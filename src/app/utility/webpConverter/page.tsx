@@ -1,4 +1,4 @@
-import WebpConverter from '@/components/domain/utility/webpConverter';
+import WebpConverter from '@/components/domain/utility/WebpConverter';
 
 export default function UtilityWebpConverterPage() {
   return (
