@@ -1,4 +1,6 @@
 #!/bin/bash
+export DEBUG=* 
+export NODE_DEBUG=*
 
 # 로그 디렉토리 생성
 DEPLOY_LOG=/home/ec2-user/app/fe/deploy.log
@@ -23,7 +25,7 @@ npm install --save-dev eslint typescript @types/node
 
 # 빌드
 echo "> Next.js 빌드 시작" >> $DEPLOY_LOG
-npm run build
+npm run build > build.log 2>&1
 
 # PM2로 애플리케이션 실행 (메모리 제한 설정)
 echo "> PM2로 애플리케이션 실행" >> $DEPLOY_LOG
