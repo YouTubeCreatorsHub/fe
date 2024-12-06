@@ -35,7 +35,6 @@
         "endOfLine": "auto"
       }
     ],
-
     "react/react-in-jsx-scope": "off",
     "import/no-extraneous-dependencies": ["error", { "devDependencies": true }],
     "@typescript-eslint/explicit-module-boundary-types": "off",
