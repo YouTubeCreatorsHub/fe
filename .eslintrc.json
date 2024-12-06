@@ -1,67 +1,17 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "airbnb",
-    "airbnb-typescript",
-    "airbnb/hooks",
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:react/recommended",
-    "plugin:prettier/recommended",
-    "prettier",
-    "next"
+    "plugin:@typescript-eslint/recommended"
   ],
-  "plugins": ["@typescript-eslint", "prettier"],
   "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
   "parserOptions": {
-    "ecmaVersion": 2020,
-    "sourceType": "module",
-    "ecmaFeatures": {
-      "jsx": true
-    },
     "project": "./tsconfig.json"
   },
   "rules": {
-    "import/prefer-default-export": "off",
-    "react/jsx-props-no-spreading": "off",
-    "prettier/prettier": [
-      "error",
-      {
-        "singleQuote": true,
-        "trailingComma": "all",
-        "printWidth": 80,
-        "tabWidth": 2,
-        "semi": true,
-        "endOfLine": "auto"
-      }
-    ],
-
     "react/react-in-jsx-scope": "off",
-    "import/no-extraneous-dependencies": ["error", { "devDependencies": true }],
-    "@typescript-eslint/explicit-module-boundary-types": "off",
-    "react/jsx-filename-extension": [1, { "extensions": [".tsx", ".jsx"] }],
-    "import/extensions": [
-      "error",
-      "ignorePackages",
-      {
-        "js": "never",
-        "jsx": "never",
-        "ts": "never",
-        "tsx": "never"
-      }
-    ],
-    "no-console": ["warn", { "allow": ["warn", "error"] }],
-    "no-unused-vars": "off",
-    "@typescript-eslint/no-unused-vars": "error",
-    "react/require-default-props": "off",
-    "react/function-component-definition": [
-      "error",
-      {
-        "namedComponents": "function-declaration",
-        "unnamedComponents": "arrow-function"
-      }
-    ],
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "import/no-cycle": "off",
     "import/order": [
       "error",
       {
@@ -75,15 +25,8 @@
     ]
   },
   "settings": {
-    "react": {
-      "version": "detect"
-    },
     "import/resolver": {
-      "node": {
-        "extensions": [".js", ".jsx", ".ts", ".tsx"]
-      },
       "typescript": {
-        "alwaysTryTypes": true,
         "project": "./tsconfig.json"
       }
     }
