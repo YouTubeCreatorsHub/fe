@@ -14,9 +14,6 @@ echo "> 배포 시작 : $(date +%c)" >> $DEPLOY_LOG
 pm2 delete next-app 2>/dev/null
 echo "> PM2 프로세스 종료: next-app" >> $DEPLOY_LOG
 
-# 메모리 제한 설정
-export NODE_OPTIONS="--max-old-space-size=512"
-
 # 의존성 설치 (npm ci 대신 npm install --production 사용)
 echo "> npm 패키지 설치" >> $DEPLOY_LOG
 cd $APP_DIR
@@ -29,7 +26,7 @@ npm run build > build.log 2>&1
 
 # PM2로 애플리케이션 실행 (메모리 제한 설정)
 echo "> PM2로 애플리케이션 실행" >> $DEPLOY_LOG
-pm2 start npm --name "next-app" -- start -- --max-old-space-size=512
+pm2 start npm --name "next-app" -- start
 
 # 실행 확인
 sleep 3
