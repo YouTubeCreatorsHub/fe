@@ -1,6 +1,6 @@
 #!/bin/bash
-export DEBUG=* 
-export NODE_DEBUG=*
+export DEBUG=app:*,http
+# export NODE_DEBUG=*
 
 # 로그 디렉토리 생성
 DEPLOY_LOG=/home/ec2-user/app/fe/deploy.log
