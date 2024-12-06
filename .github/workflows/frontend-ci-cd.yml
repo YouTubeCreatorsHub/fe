@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-      
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -36,20 +36,19 @@ jobs:
           key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-
-    
 
       - name: Install dependencies
         run: |
           npm install
         shell: bash
-      
+
       - name: Install dev dependencies
         run: |
           npm install --save-dev eslint@^8.56.0 typescript@latest @types/node@latest
           npm install --save-dev @typescript-eslint/parser @typescript-eslint/eslint-plugin
           npm install --save-dev eslint-config-next@15.0.3
         shell: bash
-      
+
       - name: Install sharp
         run: |
           npm install --include-optional sharp

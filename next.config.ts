@@ -6,11 +6,11 @@ const nextConfig: NextConfig = {
     config.resolve = {
       ...config.resolve,
       alias: {
-        '@': path.resolve(__dirname, 'src')
-      }
+        '@': path.resolve(__dirname, 'src'),
+      },
     };
     return config;
-  }
+  },
 };
 
 export default nextConfig;
