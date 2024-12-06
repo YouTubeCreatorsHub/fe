@@ -3,6 +3,7 @@
     "next/core-web-vitals",
     "airbnb",
     "airbnb-typescript",
+    "airbnb/hooks",
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:react/recommended",
@@ -34,6 +35,7 @@
         "endOfLine": "auto"
       }
     ],
+
     "react/react-in-jsx-scope": "off",
     "import/no-extraneous-dependencies": ["error", { "devDependencies": true }],
     "@typescript-eslint/explicit-module-boundary-types": "off",
@@ -50,7 +52,7 @@
     ],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
     "no-unused-vars": "off",
-    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-unused-vars": "error",
     "react/require-default-props": "off",
     "react/function-component-definition": [
       "error",
