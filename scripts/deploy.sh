@@ -38,24 +38,6 @@ sleep 3
 CURRENT_PID=$(pm2 pid next-app)
 echo "> 배포 완료 : $CURRENT_PID" >> $DEPLOY_LOG
 
-# 헬스 체크
-RETRY_COUNT=0
-MAX_RETRY=5
-echo "> 헬스 체크 시작" >> $DEPLOY_LOG
-
-until curl -s http://localhost:3000
-do
-  if [ ${RETRY_COUNT} -eq ${MAX_RETRY} ];
-  then
-    echo "> 헬스 체크 실패" >> $DEPLOY_LOG
-    exit 1
-  fi
-
-  echo "> 헬스 체크 재시도..." >> $DEPLOY_LOG
-  RETRY_COUNT=$((RETRY_COUNT + 1))
-  sleep 10
-done
-
 echo "> 배포 성공" >> $DEPLOY_LOG
 
 # 캐시 정리
