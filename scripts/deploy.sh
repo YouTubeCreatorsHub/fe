@@ -29,10 +29,6 @@ cd $APP_DIR
 npm install
 npm install --save-dev eslint typescript @types/node
 
-# 빌드
-echo "> Next.js 빌드 시작" >> $DEPLOY_LOG
-npm run build > build.log 2>&1
-
 # PM2로 애플리케이션 실행
 echo "> PM2로 애플리케이션 실행" >> $DEPLOY_LOG
 pm2 start npm --name "next-app" -- start
