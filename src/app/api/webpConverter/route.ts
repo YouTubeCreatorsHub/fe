@@ -13,8 +13,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const webpBuffer = await sharp(buffer).webp({ quality: 80 }).toBuffer();
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // sharp 옵션 추가
+    const webpBuffer = await sharp(buffer, { 
+      failOnError: false,
+      limitInputPixels: false 
+    })
+    .webp({ quality: 80 })
+    .toBuffer();
 
     return new NextResponse(webpBuffer, {
       headers: {
@@ -23,6 +31,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    console.error('Sharp error:', error);
     return NextResponse.json({ error: '이미지 변환 실패' }, { status: 500 });
   }
 }
