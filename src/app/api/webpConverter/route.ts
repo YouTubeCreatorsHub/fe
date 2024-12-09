@@ -13,21 +13,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const webpBuffer = await sharp(buffer).webp({ quality: 80 }).toBuffer();
 
-    // sharp 옵션 추가
-    const webpBuffer = await sharp(buffer, { 
-      failOnError: false,
-      limitInputPixels: false 
-    })
-    .webp({ quality: 80 })
-    .toBuffer();
+    // 파일명 인코딩 처리
+    const fileName = encodeURIComponent(file.name.split('.')[0]);
 
-    return new NextResponse(webpBuffer, {
+    return new Response(webpBuffer, {
       headers: {
         'Content-Type': 'image/webp',
-        'Content-Disposition': `attachment; filename="${file.name.split('.')[0]}.webp"`,
+        'Content-Disposition': `attachment; filename="${fileName}.webp"`,
       },
     });
   } catch (error) {
