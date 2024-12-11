@@ -10,7 +10,8 @@ export const NAVIGATION_ITEMS = [
     label: '유틸리티',
     path: '/utility',
     children: [
-      { id: 'webpConverter', label: 'webp컨버터', path: '/webpConverter' },
+      { id: 'webpConverter', label: 'Webp Converter', path: '/webpConverter' },
+      { id: 'cropper', label: 'Cropper', path: '/cropper' },
     ],
   },
   {

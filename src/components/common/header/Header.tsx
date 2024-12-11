@@ -1,5 +1,5 @@
 import { AppBar, Toolbar, Typography, Box } from '@mui/material';
-import Navigation from '../navigation/Navigation';
+import Navigation from '../navigation/navigation';
 
 export default function Header() {
   return (
