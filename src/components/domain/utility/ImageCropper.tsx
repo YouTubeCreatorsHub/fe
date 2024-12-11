@@ -27,7 +27,7 @@ const ASPECT_RATIOS = {
   golden: { value: 1.618, label: '1:1.618 (황금비율)' },
 } as const;
 
-export default function Cropper() {
+export default function ImageCropper() {
   const [image, setImage] = useState<string | null>(null);
   const [selectedRatio, setSelectedRatio] =
     useState<keyof typeof ASPECT_RATIOS>('free');

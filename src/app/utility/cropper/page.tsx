@@ -1,10 +1,10 @@
-import Cropper from '@/components/domain/utility/Cropper';
+import ImageCropper from '@/components/domain/utility/ImageCropper';
 
 export default function UtilityCropperPage() {
   return (
     <>
-      <h1>Cropper 페이지입니다1</h1>
-      <Cropper />
+      <h1>Cropper 페이지입니다</h1>
+      <ImageCropper />
     </>
   );
 }
