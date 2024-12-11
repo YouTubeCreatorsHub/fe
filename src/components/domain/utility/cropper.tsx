@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import ReactCrop, { Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+import Image from 'next/image';
 
 const ASPECT_RATIOS = {
   free: { value: undefined, label: '자유' },
@@ -143,11 +144,14 @@ export default function Cropper() {
             onChange={(c) => setCrop(c)}
             aspect={ASPECT_RATIOS[selectedRatio].value}
           >
-            <img
+            <Image
               ref={imageRef}
               src={image}
-              style={{ maxWidth: '100%' }}
               alt="Upload"
+              style={{ maxWidth: '100%', height: 'auto' }}
+              width={500}
+              height={300}
+              priority
             />
           </ReactCrop>
 
