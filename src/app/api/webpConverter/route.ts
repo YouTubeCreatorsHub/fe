@@ -15,8 +15,6 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const webpBuffer = await sharp(buffer).webp({ quality: 80 }).toBuffer();
-
-    // 파일명 인코딩 처리
     const fileName = encodeURIComponent(file.name.split('.')[0]);
 
     return new Response(webpBuffer, {

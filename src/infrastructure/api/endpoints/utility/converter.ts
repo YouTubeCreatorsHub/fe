@@ -13,7 +13,7 @@ export const converterAPI = {
         throw new Error('변환 실패');
       }
 
-      return await response.blob(); // await 추가
+      return await response.blob();
     } catch (error) {
       throw new Error('이미지 변환에 실패했습니다.');
     }

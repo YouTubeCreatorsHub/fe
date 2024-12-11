@@ -27,7 +27,7 @@ const ASPECT_RATIOS = {
   golden: { value: 1.618, label: '1:1.618 (황금비율)' },
 } as const;
 
-export default function ImageCropper() {
+export default function Cropper() {
   const [image, setImage] = useState<string | null>(null);
   const [selectedRatio, setSelectedRatio] =
     useState<keyof typeof ASPECT_RATIOS>('free');
@@ -95,8 +95,8 @@ export default function ImageCropper() {
     const scaleX = imageRef.current.naturalWidth / imageRef.current.width;
     const scaleY = imageRef.current.naturalHeight / imageRef.current.height;
 
-    canvas.width = crop.width;
-    canvas.height = crop.height;
+    canvas.width = Math.floor(crop.width * scaleX);
+    canvas.height = Math.floor(crop.height * scaleY);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -109,8 +109,8 @@ export default function ImageCropper() {
       crop.height * scaleY,
       0,
       0,
-      crop.width,
-      crop.height,
+      canvas.width,
+      canvas.height,
     );
 
     canvas.toBlob((blob) => {
