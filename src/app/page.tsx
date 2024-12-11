@@ -1,4 +1,4 @@
-import YoutubeTrendingList from '@/components/domain/main/youtubeTrendingList';
+import YoutubeTrendingList from '@/components/domain/main/YoutubeTrendingList';
 
 export default function MainPage() {
   return (

@@ -1,4 +1,4 @@
-import Cropper from '@/components/domain/utility/cropper';
+import Cropper from '@/components/domain/utility/Cropper';
 
 export default function UtilityCropperPage() {
   return (

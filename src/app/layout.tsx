@@ -1,5 +1,5 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import Header from '@/components/common/header/header';
+import Header from '@/components/common/header/Header';
 
 export default function RootLayout({
   children,
