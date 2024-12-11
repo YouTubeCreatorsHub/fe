@@ -1,8 +1,4 @@
-import dynamic from 'next/dynamic';
-
-const Cropper = dynamic(() => import('@/components/domain/utility/Cropper'), {
-  ssr: false,
-});
+import Cropper from '@/components/domain/utility/Cropper';
 
 export default function UtilityCropperPage() {
   return (
