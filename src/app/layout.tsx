@@ -1,5 +1,7 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import Header from '@/components/common/header/Header';
+import { Container } from '@mui/material';
+import Header from '@/components/common/Header';
+import { Providers } from './providers';
 
 export default function RootLayout({
   children,
@@ -11,7 +13,18 @@ export default function RootLayout({
       <body>
         <AppRouterCacheProvider>
           <Header />
-          <section>{children}</section>
+          <Providers>
+            <Container
+              maxWidth="xl"
+              sx={{
+                minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {children}
+            </Container>
+          </Providers>
         </AppRouterCacheProvider>
       </body>
     </html>
