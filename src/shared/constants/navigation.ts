@@ -18,6 +18,9 @@ export const NAVIGATION_ITEMS = [
     id: 'community',
     label: '커뮤니티',
     path: '/community',
-    children: [{ id: 'notice', label: '공지', path: '/notice' }],
+    children: [
+      { id: 'notice', label: '공지', path: '/notice' },
+      { id: 'post', label: '글 작성', path: '/post' },
+    ],
   },
 ] as const;
