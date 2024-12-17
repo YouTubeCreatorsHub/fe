@@ -1,8 +1,8 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { Container } from '@mui/material';
-import Header from '@/components/common/Header';
 import { Providers } from './providers';
 import { Metadata } from 'next';
+import Header from '@/components/common/Header';
 
 export const metadata: Metadata = {
   title: 'YouTube Creators Hub',

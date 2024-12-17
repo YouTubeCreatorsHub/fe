@@ -10,7 +10,6 @@ import {
   Button,
   Box,
   Paper,
-  IconButton,
   useTheme,
   Chip,
 } from '@mui/material';
@@ -29,9 +28,8 @@ interface Post {
 
 export default function ChannelPage() {
   const theme = useTheme();
-  const router = useRouter();
   const params = useParams();
-  const { category, channelId } = params;
+  const { channelId } = params;
 
   const posts: Post[] = [
     {

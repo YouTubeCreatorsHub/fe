@@ -9,7 +9,6 @@ import {
   Divider,
   Button,
   Chip,
-  IconButton,
   useTheme,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -30,8 +29,7 @@ interface Post {
 
 export default function PostPage() {
   const params = useParams();
-  const { category, channelId, postId } = params;
-  const theme = useTheme();
+  const { postId } = params;
   const router = useRouter();
 
   // 실제로는 API를 통해 게시글 데이터를 가져옴
