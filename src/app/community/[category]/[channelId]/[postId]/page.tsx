@@ -9,7 +9,6 @@ import {
   Divider,
   Button,
   Chip,
-  useTheme,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
