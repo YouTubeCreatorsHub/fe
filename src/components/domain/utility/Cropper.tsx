@@ -6,13 +6,18 @@ import {
   Button,
   TextField,
   Typography,
-  Card,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Container,
+  Grid,
+  Paper,
+  useTheme,
 } from '@mui/material';
-import ReactCrop, { Crop } from 'react-image-crop';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CropIcon from '@mui/icons-material/Crop';
+import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import Image from 'next/image';
 
@@ -28,6 +33,7 @@ const ASPECT_RATIOS = {
 } as const;
 
 export default function Cropper() {
+  const theme = useTheme();
   const [image, setImage] = useState<string | null>(null);
   const [selectedRatio, setSelectedRatio] =
     useState<keyof typeof ASPECT_RATIOS>('free');
@@ -91,127 +97,198 @@ export default function Cropper() {
   const handleCrop = async () => {
     if (!imageRef.current || !crop) return;
 
-    const canvas = document.createElement('canvas');
-    const scaleX = imageRef.current.naturalWidth / imageRef.current.width;
-    const scaleY = imageRef.current.naturalHeight / imageRef.current.height;
+    if (crop.width === 0 || crop.height === 0) {
+      console.error('Invalid crop area');
+      return;
+    }
 
-    canvas.width = Math.floor(crop.width * scaleX);
-    canvas.height = Math.floor(crop.height * scaleY);
+    const canvas = document.createElement('canvas');
+    const image = imageRef.current;
+
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+
+    const cropX = (crop.x * image.width * scaleX) / 100;
+    const cropY = (crop.y * image.height * scaleY) / 100;
+    const cropWidth = (crop.width * image.width * scaleX) / 100;
+    const cropHeight = (crop.height * image.height * scaleY) / 100;
+
+    canvas.width = Math.floor(cropWidth);
+    canvas.height = Math.floor(cropHeight);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.drawImage(
-      imageRef.current,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
+      image,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
       0,
       0,
       canvas.width,
       canvas.height,
     );
 
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'cropped-image.png';
-      link.click();
-      URL.revokeObjectURL(url);
-    });
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'cropped-image.png';
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      'image/png',
+      1.0,
+    );
+  };
+
+  const handleInputChange = (key: keyof Crop, value: string) => {
+    const numValue = Number(value);
+    if (!isNaN(numValue)) {
+      setCrop((prev) => ({
+        ...prev,
+        [key]: numValue,
+      }));
+    }
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
+    <Container maxWidth="lg" sx={{ py: 6 }}>
+      <Typography
+        variant="h3"
+        sx={{
+          fontWeight: 700,
+          mb: 4,
+          fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+          background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          color: 'transparent',
+        }}
+      >
         이미지 크롭
       </Typography>
 
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        style={{ marginBottom: 20 }}
-      />
+      <Paper elevation={3} sx={{ p: { xs: 2, md: 4 }, borderRadius: 2 }}>
+        <Box
+          component="label"
+          sx={{
+            display: 'block',
+            border: '2px dashed',
+            borderColor: 'primary.main',
+            borderRadius: 2,
+            p: 4,
+            textAlign: 'center',
+            mb: 4,
+            cursor: 'pointer',
+            transition: 'all 0.3s',
+            '&:hover': {
+              borderColor: 'primary.dark',
+              bgcolor: 'action.hover',
+            },
+          }}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <CloudUploadIcon
+            sx={{ fontSize: 48, color: 'primary.main', mb: 2 }}
+          />
+          <Typography variant="h6">
+            이미지를 드래그하거나 클릭하여 업로드
+          </Typography>
+        </Box>
 
-      {image && (
-        <Card sx={{ mt: 2, p: 2 }}>
-          <ReactCrop
-            crop={crop}
-            onChange={(c) => setCrop(c)}
-            aspect={ASPECT_RATIOS[selectedRatio].value}
-          >
-            <Image
-              ref={imageRef}
-              src={image}
-              alt="Upload"
-              style={{ maxWidth: '100%', height: 'auto' }}
-              width={500}
-              height={300}
-              priority
-            />
-          </ReactCrop>
+        {image && (
+          <Box sx={{ mt: 4 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={8}>
+                <Paper sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c: Crop) => setCrop(c)}
+                    aspect={ASPECT_RATIOS[selectedRatio].value}
+                  >
+                    <Image
+                      ref={imageRef}
+                      src={image}
+                      alt="Upload"
+                      style={{
+                        maxWidth: '100%',
+                        height: 'auto',
+                        borderRadius: '8px',
+                      }}
+                      width={500}
+                      height={300}
+                      priority
+                    />
+                  </ReactCrop>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3, borderRadius: 2 }}>
+                  <FormControl fullWidth sx={{ mb: 3 }}>
+                    <InputLabel>종횡비</InputLabel>
+                    <Select
+                      value={selectedRatio}
+                      onChange={(e) =>
+                        handleRatioChange(
+                          e.target.value as keyof typeof ASPECT_RATIOS,
+                        )
+                      }
+                      label="종횡비"
+                    >
+                      {Object.entries(ASPECT_RATIOS).map(([key, { label }]) => (
+                        <MenuItem key={key} value={key}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>종횡비</InputLabel>
-              <Select
-                value={selectedRatio}
-                onChange={(e) =>
-                  handleRatioChange(
-                    e.target.value as keyof typeof ASPECT_RATIOS,
-                  )
-                }
-                label="종횡비"
-              >
-                {Object.entries(ASPECT_RATIOS).map(([key, { label }]) => (
-                  <MenuItem key={key} value={key}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    {['x', 'y', 'width', 'height'].map((key) => (
+                      <Grid item xs={6} key={key}>
+                        <TextField
+                          fullWidth
+                          label={key.toUpperCase()}
+                          type="number"
+                          size="small"
+                          value={crop[key as keyof Crop]}
+                          onChange={(e) =>
+                            handleInputChange(key as keyof Crop, e.target.value)
+                          }
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={handleCrop}
+                    startIcon={<CropIcon />}
+                    sx={{
+                      py: 1.5,
+                      borderRadius: 2,
+                      boxShadow: theme.shadows[4],
+                    }}
+                  >
+                    크롭하기
+                  </Button>
+                </Paper>
+              </Grid>
+            </Grid>
           </Box>
-
-          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <TextField
-              label="X"
-              type="number"
-              value={Math.round(crop.x)}
-              onChange={(e) => setCrop({ ...crop, x: Number(e.target.value) })}
-            />
-            <TextField
-              label="Y"
-              type="number"
-              value={Math.round(crop.y)}
-              onChange={(e) => setCrop({ ...crop, y: Number(e.target.value) })}
-            />
-            <TextField
-              label="Width"
-              type="number"
-              value={Math.round(crop.width)}
-              onChange={(e) =>
-                setCrop({ ...crop, width: Number(e.target.value) })
-              }
-            />
-            <TextField
-              label="Height"
-              type="number"
-              value={Math.round(crop.height)}
-              onChange={(e) =>
-                setCrop({ ...crop, height: Number(e.target.value) })
-              }
-            />
-          </Box>
-
-          <Button variant="contained" onClick={handleCrop} sx={{ mt: 2 }}>
-            크롭하기
-          </Button>
-        </Card>
-      )}
-    </Box>
+        )}
+      </Paper>
+    </Container>
   );
 }

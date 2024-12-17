@@ -104,7 +104,7 @@ export default function CommunityPage() {
                   <CardMedia
                     component="img"
                     height="200"
-                    image={category.imageUrl}
+                    // image={category.imageUrl}
                     alt={category.name}
                     className="category-image"
                     sx={{

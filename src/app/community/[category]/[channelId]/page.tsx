@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Container,
   Typography,
@@ -28,8 +28,9 @@ interface Post {
 
 export default function ChannelPage() {
   const theme = useTheme();
+  const router = useRouter();
   const params = useParams();
-  const { channelId } = params;
+  const { category, channelId } = params;
 
   const posts: Post[] = [
     {
@@ -40,6 +41,10 @@ export default function ChannelPage() {
       views: 100,
     },
   ];
+
+  const handlePostClick = (postId: string) => {
+    router.push(`/community/${category}/${channelId}/${postId}`);
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
@@ -87,6 +92,7 @@ export default function ChannelPage() {
                     bgcolor: 'action.hover',
                   },
                 }}
+                onClick={() => handlePostClick(post.id)}
               >
                 <Box sx={{ flex: 1 }}>
                   <Typography
