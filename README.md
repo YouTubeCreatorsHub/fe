@@ -1,48 +1,48 @@
-📦 src
-├── 📂 app
-│   ├── 📂 example
-│   │   ├── 📜 layout.tsx
-│   │   └── 📜 page.tsx
-│   ├── 📜 layout.tsx
-│   ├── 📜 page.tsx
-│   ├── 📜 providers.tsx
-│   └── 📜 theme.ts
-├── 📂 application
-│   ├── 📂 hooks
-│   └── 📂 store
-├── 📂 components
-│   ├── 📂 common
-│   └── 📂 domain
-├── 📂 domain
-│   └── 📂 example
-│       └── 📂 entity
-├── 📂 infrastructure
-│   ├── 📂 api
-│   │   ├── 📂 axios
-│   │   │   ├── 📜 errorHandle.ts
-│   │   │   ├── 📜 instance.ts
-│   │   │   └── 📜 interceptors.ts
-│   │   └── 📂 endpoints
-│   └── 📂 storage
-│       ├── 📜 localStorage.ts
-│       └── 📜 sessionStorage.ts
-├── 📂 lib
-├── 📂 shared
-│   ├── 📂 constants
-│   │   ├── 📜 api.ts
-│   │   ├── 📜 common.ts
-│   │   └── 📜 navigation.ts
-│   └── 📂 types
-│       ├── 📜 api.ts
-│       ├── 📜 common.ts
-│       └── 📜 navigation.ts
-└── 📂 __tests__
-    └── 📂 integration
-        └── 📂 domain
+📦 src<br>
+├── 📂 app<br>
+│   ├── 📂 example<br>
+│   │   ├── 📜 layout.tsx<br>
+│   │   └── 📜 page.tsx<br>
+│   ├── 📜 layout.tsx<br>
+│   ├── 📜 page.tsx<br>
+│   ├── 📜 providers.tsx<br>
+│   └── 📜 theme.ts<br>
+├── 📂 application<br>
+│   ├── 📂 hooks<br>
+│   └── 📂 store<br>
+├── 📂 components<br>
+│   ├── 📂 common<br>
+│   └── 📂 domain<br>
+├── 📂 domain<br>
+│   └── 📂 example<br>
+│       └── 📂 entity<br>
+├── 📂 infrastructure<br>
+│   ├── 📂 api<br>
+│   │   ├── 📂 axios<br>
+│   │   │   ├── 📜 errorHandle.ts<br>
+│   │   │   ├── 📜 instance.ts<br>
+│   │   │   └── 📜 interceptors.ts<br>
+│   │   └── 📂 endpoints<br>
+│   └── 📂 storage<br>
+│       ├── 📜 localStorage.ts<br>
+│       └── 📜 sessionStorage.ts<br>
+├── 📂 lib<br>
+├── 📂 shared<br>
+│   ├── 📂 constants<br>
+│   │   ├── 📜 api.ts<br>
+│   │   ├── 📜 common.ts<br>
+│   │   └── 📜 navigation.ts<br>
+│   └── 📂 types<br>
+│       ├── 📜 api.ts<br>
+│       ├── 📜 common.ts<br>
+│       └── 📜 navigation.ts<br>
+└── 📂 __tests__<br>
+    └── 📂 integration<br>
+        └── 📂 domain<br>
 
-🛠 Tech Stack
-Next.js 15
-TypeScript
-Zustand
+🛠 Tech Stack<br>
+Next.js 15<br>
+TypeScript<br>
+Zustand<br>
 Mui
-Axios
+Axios<br>
