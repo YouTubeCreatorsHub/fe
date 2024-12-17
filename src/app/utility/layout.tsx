@@ -1,7 +1,7 @@
-export default function UtilityMainLayout({
+export default function UtilityLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <div>{children}</div>;
+  return <>{children}</>;
 }
