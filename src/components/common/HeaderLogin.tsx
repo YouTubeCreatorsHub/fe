@@ -1,3 +1,5 @@
+'use client';
+
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import {
@@ -8,23 +10,27 @@ import {
   Menu,
   MenuItem,
   Divider,
+  Badge,
 } from '@mui/material';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/application/store/common/authStore';
 
 export default function HeaderLogin() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState({ name: '사용자', avatar: '' });
-
   const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuthStore();
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) =>
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
-  const handleMenuClose = () => setAnchorEl(null);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    logout();
     handleMenuClose();
   };
 
@@ -39,26 +45,38 @@ export default function HeaderLogin() {
         mb: 1,
       }}
     >
-      {isLoggedIn ? (
+      {isAuthenticated ? (
         <Box sx={{ position: 'relative' }}>
           <IconButton
             onClick={handleMenuOpen}
             sx={{
               p: 0.5,
-              '&:hover': { bgcolor: 'action.hover' },
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'scale(1.1)',
+                bgcolor: 'transparent',
+              },
             }}
           >
-            <Avatar
-              sx={{
-                width: 32,
-                height: 32,
-                border: '2px solid',
-                borderColor: 'primary.main',
-              }}
-              src={user.avatar}
+            <Badge
+              overlap="circular"
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              variant="dot"
+              color="success"
             >
-              {user.name[0]}
-            </Avatar>
+              <Avatar
+                sx={{
+                  width: 32,
+                  height: 32,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  bgcolor: 'primary.light',
+                }}
+                src={user?.avatar}
+              >
+                {user?.name?.[0]}
+              </Avatar>
+            </Badge>
           </IconButton>
           <Menu
             anchorEl={anchorEl}
@@ -67,17 +85,37 @@ export default function HeaderLogin() {
             transformOrigin={{ horizontal: 'right', vertical: 'top' }}
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             PaperProps={{
-              elevation: 2,
-              sx: { mt: 1, minWidth: 180 },
+              elevation: 3,
+              sx: {
+                mt: 1.5,
+                minWidth: 200,
+                borderRadius: 2,
+                overflow: 'hidden',
+              },
             }}
           >
-            <MenuItem onClick={() => router.push('/profile')} sx={{ py: 1 }}>
-              <PersonIcon sx={{ mr: 2, fontSize: '1.25rem' }} />
+            <MenuItem
+              onClick={() => {
+                router.push('/profile');
+                handleMenuClose();
+              }}
+              sx={{
+                py: 1.5,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <PersonIcon sx={{ mr: 2, color: 'primary.main' }} />
               회원정보
             </MenuItem>
             <Divider />
-            <MenuItem onClick={handleLogout} sx={{ py: 1 }}>
-              <LogoutIcon sx={{ mr: 2, fontSize: '1.25rem' }} />
+            <MenuItem
+              onClick={handleLogout}
+              sx={{
+                py: 1.5,
+                '&:hover': { bgcolor: 'error.lighter' },
+              }}
+            >
+              <LogoutIcon sx={{ mr: 2, color: 'error.main' }} />
               로그아웃
             </MenuItem>
           </Menu>
@@ -94,6 +132,7 @@ export default function HeaderLogin() {
               py: 0.75,
               textTransform: 'none',
               fontWeight: 500,
+              borderWidth: 1.5,
             }}
           >
             로그인
@@ -108,6 +147,7 @@ export default function HeaderLogin() {
               py: 0.75,
               textTransform: 'none',
               fontWeight: 500,
+              boxShadow: 2,
             }}
           >
             회원가입
