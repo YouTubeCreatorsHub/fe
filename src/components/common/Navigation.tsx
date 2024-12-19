@@ -21,7 +21,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
-import { NAVIGATION_ITEMS } from '@/shared/constants/navigation';
+import { NAVIGATION_ITEMS } from '@/shared/constants/common/navigation';
 import { NavigationItem } from '@/shared/types/navigation';
 
 interface NavigationProps {

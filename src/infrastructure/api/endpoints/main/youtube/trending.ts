@@ -1,5 +1,5 @@
-import { YOUTUBE_API_ENDPOINTS } from '@/shared/constants/api';
-import { YouTubeAPIResponse } from '@/shared/types/domain/main/youtube/youtubeTrends';
+import { YOUTUBE_API_ENDPOINTS } from '@/shared/constants/common/api';
+import { YouTubeAPIResponse } from '@/shared/types/domain/main/youtubeTrends';
 import { api } from '@/infrastructure/api/axios/instance';
 
 export const trendingAPI = {

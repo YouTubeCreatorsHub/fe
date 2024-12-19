@@ -23,13 +23,7 @@ import GifIcon from '@mui/icons-material/Gif';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import Image from 'next/image';
 import { createGIF } from 'gifshot';
-
-interface GifOptions {
-  fps: number;
-  quality: number;
-  width: number;
-  loop: boolean;
-}
+import { GifOptions } from '@/shared/types/domain/utility/gifMaker';
 
 export default function GifMaker() {
   const theme = useTheme();

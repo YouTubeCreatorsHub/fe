@@ -4,7 +4,7 @@ export const converterAPI = {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('/api/webpConverter', {
+      const response = await fetch('/api/utility/webpConverter', {
         method: 'POST',
         body: formData,
       });

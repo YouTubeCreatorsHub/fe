@@ -22,7 +22,7 @@ import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { trendingAPI } from '@/infrastructure/api/endpoints/main/youtube/trending';
-import { TrendingVideo } from '@/shared/types/domain/main/youtube/youtubeTrends';
+import { TrendingVideo } from '@/shared/types/domain/main/youtubeTrends';
 
 export default function YoutubeTrendingList() {
   const theme = useTheme();

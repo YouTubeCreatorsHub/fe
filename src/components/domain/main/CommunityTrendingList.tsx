@@ -14,14 +14,7 @@ import {
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-
-interface PopularPost {
-  id: number;
-  title: string;
-  category: string;
-  views: number;
-  date: string;
-}
+import { PopularPost } from '@/shared/types/domain/main/communityTrends';
 
 export default function CommunityTrendingList() {
   const theme = useTheme();
