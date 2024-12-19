@@ -72,7 +72,6 @@ export default function WebpConverter() {
             borderRadius: 2,
             p: 4,
             textAlign: 'center',
-            mb: 4,
             cursor: 'pointer',
             transition: 'all 0.3s',
             '&:hover': {
@@ -119,28 +118,30 @@ export default function WebpConverter() {
             {isError}
           </Typography>
         )}
-
-        <Button
-          fullWidth
-          variant="contained"
-          onClick={handleConvert}
-          disabled={!file || isConverting}
-          sx={{
-            py: 1.5,
-            borderRadius: 2,
-            boxShadow: theme.shadows[4],
-            fontSize: '1.1rem',
-          }}
-        >
-          {isConverting ? (
-            <>
-              <CircularProgress size={24} sx={{ mr: 1 }} />
-              변환 중...
-            </>
-          ) : (
-            'WebP로 변환'
-          )}
-        </Button>
+        {file && (
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={handleConvert}
+            disabled={!file || isConverting}
+            sx={{
+              mt: 4,
+              py: 1.5,
+              borderRadius: 2,
+              boxShadow: theme.shadows[4],
+              fontSize: '1.1rem',
+            }}
+          >
+            {isConverting ? (
+              <>
+                <CircularProgress size={24} sx={{ mr: 1 }} />
+                변환 중...
+              </>
+            ) : (
+              'WebP로 변환'
+            )}
+          </Button>
+        )}
       </Paper>
     </Container>
   );

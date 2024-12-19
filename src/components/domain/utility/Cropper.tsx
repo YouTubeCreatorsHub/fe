@@ -45,10 +45,13 @@ export default function Cropper() {
     height: 100,
   });
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const [file, setFile] = useState<File | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setFile(file || null);
+
       const reader = new FileReader();
       reader.onload = () => {
         setImage(reader.result as string);
@@ -179,7 +182,7 @@ export default function Cropper() {
           sx={{
             display: 'block',
             border: '2px dashed',
-            borderColor: 'primary.main',
+            borderColor: file ? 'primary.main' : 'grey.300',
             borderRadius: 2,
             p: 4,
             textAlign: 'center',
@@ -187,7 +190,7 @@ export default function Cropper() {
             cursor: 'pointer',
             transition: 'all 0.3s',
             '&:hover': {
-              borderColor: 'primary.dark',
+              borderColor: 'primary.main',
               bgcolor: 'action.hover',
             },
           }}

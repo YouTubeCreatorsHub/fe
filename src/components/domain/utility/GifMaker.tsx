@@ -126,7 +126,6 @@ export default function GifMaker() {
                   borderRadius: 2,
                   p: 4,
                   textAlign: 'center',
-                  mb: 3,
                   cursor: 'pointer',
                   transition: 'all 0.3s',
                   '&:hover': {
