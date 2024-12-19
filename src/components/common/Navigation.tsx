@@ -22,12 +22,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { NAVIGATION_ITEMS } from '@/shared/constants/common/navigation';
-import { NavigationItem } from '@/shared/types/navigation';
-
-interface NavigationProps {
-  isMobile: boolean;
-  onClose?: () => void;
-}
+import { NavigationItem, NavigationProps } from '@/shared/types/navigation';
+import HeaderLogin from './HeaderLogin';
 
 export default function Navigation({ isMobile, onClose }: NavigationProps) {
   const router = useRouter();
@@ -94,19 +90,13 @@ export default function Navigation({ isMobile, onClose }: NavigationProps) {
   if (isMobile) {
     return (
       <Box sx={{ width: '100%' }}>
-        <IconButton
-          onClick={onClose}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            color: 'text.secondary',
-            zIndex: 1,
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-        <List sx={{ pt: 6 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+          <IconButton onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <HeaderLogin />
+        <List sx={{ pt: 1 }}>
           {NAVIGATION_ITEMS.map((item) => (
             <Box key={item.id}>
               <ListItem

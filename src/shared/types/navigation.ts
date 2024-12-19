@@ -1,3 +1,8 @@
+export interface NavigationProps {
+  isMobile: boolean;
+  onClose?: () => void;
+}
+
 export interface NavigationItem {
   id: string;
   label: string;
