@@ -18,6 +18,8 @@ import GifIcon from '@mui/icons-material/Gif';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import PhotoFilterIcon from '@mui/icons-material/PhotoFilter';
 import PhotoSizeSelectActualIcon from '@mui/icons-material/PhotoSizeSelectActual';
+import AutoAwesomeMosaicIcon from '@mui/icons-material/AutoAwesomeMosaic';
+import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
 import { UtilityListType } from '@/shared/types/domain/utility/utilityList';
 
 export default function UtilityList() {
@@ -64,6 +66,22 @@ export default function UtilityList() {
         '이미지를 이용하여 간단하게 썸네일 제작을 할 수 있습니다. 크기, 비율, 텍스트, 배경색 등 다양한 옵션을 제공합니다.',
       icon: <PhotoSizeSelectActualIcon sx={{ fontSize: '2rem' }} />,
       path: '/utility/thumbnailMaker',
+    },
+    {
+      id: 'collageMaker',
+      title: 'Collage Maker',
+      description:
+        '이미지를 이용하여 간단하게 콜라주를 제작할 수 있습니다. 크기, 배경색, 여백 등 다양한 옵션을 제공합니다.',
+      icon: <AutoAwesomeMosaicIcon sx={{ fontSize: '2rem' }} />,
+      path: '/utility/collageMaker',
+    },
+    {
+      id: 'watermarkMaker',
+      title: 'Watermark Maker',
+      description:
+        '이미지에 워터마크를 삽입하여 이미지를 보호할 수 있습니다. 텍스트, 로고, 크기, 위치 등 다양한 옵션을 제공합니다.',
+      icon: <BrandingWatermarkIcon sx={{ fontSize: '2rem' }} />,
+      path: '/utility/watermarkMaker',
     },
   ];
 

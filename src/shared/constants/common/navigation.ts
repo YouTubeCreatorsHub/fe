@@ -20,6 +20,12 @@ export const NAVIGATION_ITEMS = [
         label: 'Thumbnail Maker',
         path: '/thumbnailMaker',
       },
+      { id: 'collageMaker', label: 'Collage Maker', path: '/collageMaker' },
+      {
+        id: 'watermarkMaker',
+        label: 'Watermark Maker',
+        path: '/watermarkMaker',
+      },
     ],
   },
   {
