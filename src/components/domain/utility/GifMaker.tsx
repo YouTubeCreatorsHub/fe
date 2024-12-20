@@ -20,7 +20,6 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import GifIcon from '@mui/icons-material/Gif';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import Image from 'next/image';
 import { createGIF } from 'gifshot';
 import { GifOptions } from '@/shared/types/domain/utility/gifMaker';
@@ -183,12 +182,6 @@ export default function GifMaker() {
                             gap: 1,
                           }}
                         >
-                          <IconButton
-                            size="small"
-                            sx={{ bgcolor: 'background.paper' }}
-                          >
-                            <DragIndicatorIcon fontSize="small" />
-                          </IconButton>
                           <IconButton
                             size="small"
                             onClick={() => handleRemoveImage(index)}

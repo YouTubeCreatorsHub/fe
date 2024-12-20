@@ -14,6 +14,12 @@ export const NAVIGATION_ITEMS = [
       { id: 'webpConverter', label: 'Webp Converter', path: '/webpConverter' },
       { id: 'cropper', label: 'Cropper', path: '/cropper' },
       { id: 'gifMaker', label: 'Gif Maker', path: '/gifMaker' },
+      { id: 'imageFilter', label: 'Image Filter', path: '/imageFilter' },
+      {
+        id: 'thumbnailMaker',
+        label: 'Thumbnail Maker',
+        path: '/thumbnailMaker',
+      },
     ],
   },
   {

@@ -16,6 +16,8 @@ import ImageIcon from '@mui/icons-material/Image';
 import CropIcon from '@mui/icons-material/Crop';
 import GifIcon from '@mui/icons-material/Gif';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import PhotoFilterIcon from '@mui/icons-material/PhotoFilter';
+import PhotoSizeSelectActualIcon from '@mui/icons-material/PhotoSizeSelectActual';
 import { UtilityListType } from '@/shared/types/domain/utility/utilityList';
 
 export default function UtilityList() {
@@ -46,6 +48,22 @@ export default function UtilityList() {
         '여러 이미지를 조합하여 GIF 애니메이션을 만들 수 있습니다. FPS, 품질 등 다양한 옵션을 제공합니다.',
       icon: <GifIcon sx={{ fontSize: '2rem' }} />,
       path: '/utility/gifMaker',
+    },
+    {
+      id: 'imageFilter',
+      title: 'Image Filter',
+      description:
+        '이미지에 다양한 필터를 적용하여 효과를 줄 수 있습니다. 밝기, 대비, 채도, 흑백 등 다양한 옵션을 제공합니다.',
+      icon: <PhotoFilterIcon sx={{ fontSize: '2rem' }} />,
+      path: '/utility/imageFilter',
+    },
+    {
+      id: 'thumbnailMaker',
+      title: 'Thumbnail Maker',
+      description:
+        '이미지를 이용하여 간단하게 썸네일 제작을 할 수 있습니다. 크기, 비율, 텍스트, 배경색 등 다양한 옵션을 제공합니다.',
+      icon: <PhotoSizeSelectActualIcon sx={{ fontSize: '2rem' }} />,
+      path: '/utility/thumbnailMaker',
     },
   ];
 
