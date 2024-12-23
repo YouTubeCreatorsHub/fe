@@ -23,45 +23,47 @@ import ImageIcon from '@mui/icons-material/Image';
 import Image from 'next/image';
 import { ThumbnailOptions } from '@/shared/types/domain/utility/thumbnailMaker';
 
+const INITIAL_OPTIONS: ThumbnailOptions = {
+  width: 1280,
+  height: 720,
+  quality: 90,
+  format: 'webp',
+  filter: {
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    blur: 0,
+    grayscale: 0,
+  },
+  overlay: {
+    enabled: false,
+    color: '#000000',
+    opacity: 30,
+  },
+  border: {
+    enabled: false,
+    color: '#000000',
+    width: 5,
+    radius: 0,
+  },
+  text: {
+    content: '',
+    size: 48,
+    color: '#ffffff',
+    position: 'center',
+    outline: false,
+    outlineColor: '#000000',
+    shadow: false,
+  },
+};
+
 export default function ThumbnailMaker() {
   const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string>('');
-  const [options, setOptions] = useState<ThumbnailOptions>({
-    width: 1280,
-    height: 720,
-    quality: 90,
-    format: 'webp',
-    filter: {
-      brightness: 100,
-      contrast: 100,
-      saturation: 100,
-      blur: 0,
-      grayscale: 0,
-    },
-    overlay: {
-      enabled: false,
-      color: '#000000',
-      opacity: 30,
-    },
-    text: {
-      content: '',
-      size: 48,
-      color: '#ffffff',
-      position: 'center',
-      outline: true,
-      outlineColor: '#000000',
-      shadow: true,
-    },
-    border: {
-      enabled: false,
-      width: 4,
-      color: '#ffffff',
-      radius: 8,
-    },
-  });
+  const [options, setOptions] = useState<ThumbnailOptions>(INITIAL_OPTIONS);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
