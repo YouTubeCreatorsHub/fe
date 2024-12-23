@@ -26,6 +26,11 @@ export const NAVIGATION_ITEMS = [
         label: 'Watermark Maker',
         path: '/watermarkMaker',
       },
+      {
+        id: 'imageTransform',
+        label: 'Image Transform',
+        path: '/imageTransform',
+      },
     ],
   },
   {

@@ -20,6 +20,7 @@ import PhotoFilterIcon from '@mui/icons-material/PhotoFilter';
 import PhotoSizeSelectActualIcon from '@mui/icons-material/PhotoSizeSelectActual';
 import AutoAwesomeMosaicIcon from '@mui/icons-material/AutoAwesomeMosaic';
 import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
+import CropRotateIcon from '@mui/icons-material/CropRotate';
 import { UtilityListType } from '@/shared/types/domain/utility/utilityList';
 
 export default function UtilityList() {
@@ -82,6 +83,14 @@ export default function UtilityList() {
         '이미지에 워터마크를 삽입하여 이미지를 보호할 수 있습니다. 텍스트, 로고, 크기, 위치 등 다양한 옵션을 제공합니다.',
       icon: <BrandingWatermarkIcon sx={{ fontSize: '2rem' }} />,
       path: '/utility/watermarkMaker',
+    },
+    {
+      id: 'imageTransform',
+      title: 'Image Transform',
+      description:
+        '이미지를 회전, 반전, 크기 조절 등 다양한 변형을 할 수 있습니다. 다양한 옵션을 제공합니다.',
+      icon: <CropRotateIcon sx={{ fontSize: '2rem' }} />,
+      path: '/utility/imageTransform',
     },
   ];
 
